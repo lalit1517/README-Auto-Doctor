@@ -2,6 +2,12 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-chat";
 const FALLBACK_OPENROUTER_MODEL = "deepseek/deepseek-r1:free";
 
+type RepositoryReadmeContext = {
+  files: string[];
+  packageJson: Record<string, unknown> | null;
+  readme: string;
+};
+
 type OpenRouterMessage = {
   content: string;
   role: "system" | "user";
@@ -54,41 +60,62 @@ async function parseOpenRouterError(response: Response) {
   }
 }
 
-async function requestReadmeImprovement(
-  originalReadme: string,
-  model: string,
-  apiKey: string,
-) {
-  const messages: OpenRouterMessage[] = [
+function buildMessages(context: RepositoryReadmeContext): OpenRouterMessage[] {
+  return [
     {
       role: "system",
-      content:
-        "You are an expert developer who writes clean, concise, and professional GitHub README files. Always return valid Markdown only.",
+      content: `You are a senior developer and technical writer.
+
+Your task is to generate a high-quality GitHub README based on:
+
+- existing README (if any)
+- project structure
+- dependencies
+- scripts
+
+Rules:
+
+- Output must be clean markdown
+- Use markdown headings like # and ##
+- Use proper sections:
+  - Project Title
+  - Description
+  - Features (bullet points)
+  - Tech Stack
+  - Installation
+  - Usage
+  - Scripts
+  - Folder Structure
+- Use bullet points wherever appropriate
+- Use fenced code blocks with triple backticks for commands like:
+  npm install
+  npm run dev
+- Include install and usage commands only when they are supported by the project context
+- Infer project purpose intelligently
+- Do NOT hallucinate unknown features
+- Keep it professional and concise`,
     },
     {
       role: "user",
-      content: `Improve this GitHub README.
+      content: `Generate a complete README for this project:
 
-Requirements:
-- Return valid Markdown only
-- Keep the README concise but professional
-- Use a clear structure with these sections:
-  - Title
-  - Description
-  - Installation
-  - Usage
-  - Features
-  - Tech Stack
-- Write polished, developer-friendly copy
-- Preserve useful project-specific details when present
-- Do not add filler text or commentary outside the README
+README:
+${context.readme || "(No existing README found)"}
 
-README to improve:
+FILES:
+${JSON.stringify(context.files, null, 2)}
 
-${originalReadme}`,
+PACKAGE.JSON:
+${JSON.stringify(context.packageJson, null, 2)}`,
     },
   ];
+}
 
+async function requestReadmeGeneration(
+  context: RepositoryReadmeContext,
+  model: string,
+  apiKey: string,
+) {
   const response = await fetch(OPENROUTER_URL, {
     method: "POST",
     headers: {
@@ -97,7 +124,7 @@ ${originalReadme}`,
     },
     body: JSON.stringify({
       model,
-      messages,
+      messages: buildMessages(context),
     }),
     cache: "no-store",
   });
@@ -122,7 +149,9 @@ ${originalReadme}`,
   return improved;
 }
 
-export async function improveReadmeWithOpenRouter(originalReadme: string) {
+export async function generateReadmeFromRepositoryContext(
+  context: RepositoryReadmeContext,
+) {
   const apiKey = getOpenRouterApiKey();
 
   if (!apiKey) {
@@ -133,7 +162,7 @@ export async function improveReadmeWithOpenRouter(originalReadme: string) {
 
   for (const model of getPreferredModels()) {
     try {
-      return await requestReadmeImprovement(originalReadme, model, apiKey);
+      return await requestReadmeGeneration(context, model, apiKey);
     } catch (error) {
       if (error instanceof OpenRouterRequestError) {
         lastError = error;
@@ -147,7 +176,7 @@ export async function improveReadmeWithOpenRouter(originalReadme: string) {
   throw (
     lastError ??
     new OpenRouterRequestError(
-      "OpenRouter did not return an improved README.",
+      "OpenRouter did not return a generated README.",
       502,
     )
   );
