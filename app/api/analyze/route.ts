@@ -42,7 +42,10 @@ class PackageJsonParseError extends Error {
 }
 
 function decodeGitHubContentFile(file: GitHubContentFile) {
-  if (!file.content || file.encoding !== "base64") {
+  if (
+    (file.content === null || file.content === undefined) ||
+    file.encoding !== "base64"
+  ) {
     throw new GitHubDecodeError();
   }
 

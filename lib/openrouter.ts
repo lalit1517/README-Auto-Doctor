@@ -5,7 +5,7 @@ const FALLBACK_OPENROUTER_MODEL = "deepseek/deepseek-r1:free";
 type RepositoryReadmeContext = {
   files: string[];
   packageJson: Record<string, unknown> | null;
-  readme: string;
+  readme: string | null;
 };
 
 type OpenRouterMessage = {
