@@ -46,7 +46,15 @@ export function parseGitHubRepoUrl(repoUrl: string) {
   return { owner, repo } satisfies ParsedGitHubRepo;
 }
 
-export function buildGitHubHeaders(accessToken?: string) {
+type BuildGitHubHeadersOptions = {
+  allowEnvFallback?: boolean;
+};
+
+export function buildGitHubHeaders(
+  accessToken?: string,
+  options: BuildGitHubHeadersOptions = {},
+) {
+  const { allowEnvFallback = true } = options;
   const headers: HeadersInit = {
     Accept: "application/vnd.github+json",
     "User-Agent": "README-Auto-Doctor",
@@ -55,7 +63,7 @@ export function buildGitHubHeaders(accessToken?: string) {
 
   if (accessToken) {
     headers.Authorization = `Bearer ${accessToken}`;
-  } else if (process.env.GITHUB_TOKEN) {
+  } else if (allowEnvFallback && process.env.GITHUB_TOKEN) {
     headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
   }
 

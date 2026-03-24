@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getGitHubToken } from "@/lib/auth";
 import {
   GitHubRequestError,
   buildGitHubHeaders,
@@ -52,9 +53,15 @@ function decodeGitHubContentFile(file: GitHubContentFile) {
   return Buffer.from(file.content.replace(/\n/g, ""), "base64").toString("utf-8");
 }
 
-async function fetchReadme(owner: string, repo: string) {
+function getAnalyzeGitHubHeaders(accessToken: string | null) {
+  return buildGitHubHeaders(accessToken ?? undefined, {
+    allowEnvFallback: false,
+  });
+}
+
+async function fetchReadme(owner: string, repo: string, accessToken: string | null) {
   const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
-    headers: buildGitHubHeaders(),
+    headers: getAnalyzeGitHubHeaders(accessToken),
     cache: "no-store",
   });
 
@@ -73,9 +80,9 @@ async function fetchReadme(owner: string, repo: string) {
   return decodeGitHubContentFile(data);
 }
 
-async function fetchRootFiles(owner: string, repo: string) {
+async function fetchRootFiles(owner: string, repo: string, accessToken: string | null) {
   const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents`, {
-    headers: buildGitHubHeaders(),
+    headers: getAnalyzeGitHubHeaders(accessToken),
     cache: "no-store",
   });
 
@@ -99,11 +106,11 @@ async function fetchRootFiles(owner: string, repo: string) {
     .filter((item): item is string => Boolean(item));
 }
 
-async function fetchPackageJson(owner: string, repo: string) {
+async function fetchPackageJson(owner: string, repo: string, accessToken: string | null) {
   const response = await fetch(
     `https://api.github.com/repos/${owner}/${repo}/contents/package.json`,
     {
-      headers: buildGitHubHeaders(),
+      headers: getAnalyzeGitHubHeaders(accessToken),
       cache: "no-store",
     },
   );
@@ -129,11 +136,15 @@ async function fetchPackageJson(owner: string, repo: string) {
   }
 }
 
-async function buildRepositoryContext(owner: string, repo: string): Promise<RepositoryContext> {
+async function buildRepositoryContext(
+  owner: string,
+  repo: string,
+  accessToken: string | null,
+): Promise<RepositoryContext> {
   const [readme, files, packageJson] = await Promise.all([
-    fetchReadme(owner, repo),
-    fetchRootFiles(owner, repo),
-    fetchPackageJson(owner, repo),
+    fetchReadme(owner, repo, accessToken),
+    fetchRootFiles(owner, repo, accessToken),
+    fetchPackageJson(owner, repo, accessToken),
   ]);
 
   return {
@@ -176,7 +187,8 @@ export async function POST(request: Request) {
   const { owner, repo } = parsedRepo;
 
   try {
-    const context = await buildRepositoryContext(owner, repo);
+    const accessToken = await getGitHubToken();
+    const context = await buildRepositoryContext(owner, repo, accessToken);
     const improved = await generateReadmeFromRepositoryContext(context);
 
     return NextResponse.json({
