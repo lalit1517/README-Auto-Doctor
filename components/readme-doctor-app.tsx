@@ -1,0 +1,638 @@
+"use client";
+
+import { FormEvent, useState } from "react";
+import { signIn, signOut, useSession } from "next-auth/react";
+import ReactDiffViewer from "react-diff-viewer-continued";
+import ReactMarkdown from "react-markdown";
+
+type AnalyzeResponse = {
+  original?: string;
+  improved?: string;
+  error?: string;
+};
+
+type CreatePrResponse = {
+  prUrl?: string;
+  error?: string;
+};
+
+type Toast = {
+  actionHref?: string;
+  actionLabel?: string;
+  id: number;
+  kind: "error" | "success";
+  message: string;
+};
+
+type ViewMode = "preview" | "diff";
+
+const emptyOriginalMarkdown = `# Original README
+
+Paste a GitHub repository URL and click **Analyze README** to fetch the current repository README.
+`;
+
+const emptyImprovedMarkdown = `# Improved README
+
+Your improved README will appear here after analysis completes.
+`;
+
+function LoadingPreview() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      {["Original README", "Improved README"].map((label, index) => (
+        <section
+          className="overflow-hidden rounded-[24px] border border-white/10 bg-black/25"
+          key={label}
+        >
+          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-400">
+              {label}
+            </p>
+            <span
+              className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
+                index === 0
+                  ? "bg-white/10 text-slate-300"
+                  : "bg-mint/10 text-mint"
+              }`}
+            >
+              {index === 0 ? "Fetching" : "Generating"}
+            </span>
+          </div>
+          <div className="space-y-4 p-6">
+            <div className="h-4 w-2/3 animate-pulse rounded-full bg-white/10" />
+            <div className="h-4 w-full animate-pulse rounded-full bg-white/5" />
+            <div className="h-4 w-5/6 animate-pulse rounded-full bg-white/5" />
+            <div className="h-4 w-4/6 animate-pulse rounded-full bg-white/5" />
+            <div className="mt-8 h-24 animate-pulse rounded-2xl bg-slate-900/70" />
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function getApiErrorMessage(status: number, fallback: string) {
+  if (status === 401) {
+    return "Your GitHub session has expired or is unauthorized. Please sign in again.";
+  }
+
+  if (status === 403) {
+    return "Repository access is denied for the connected GitHub account.";
+  }
+
+  if (status === 429) {
+    return "GitHub API rate limit reached. Please wait a moment and try again.";
+  }
+
+  return fallback;
+}
+
+export function ReadmeDoctorApp() {
+  const { data: session, status } = useSession();
+  const [repoUrl, setRepoUrl] = useState("");
+  const [originalReadme, setOriginalReadme] = useState(emptyOriginalMarkdown);
+  const [improvedReadme, setImprovedReadme] = useState(emptyImprovedMarkdown);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCreatingPr, setIsCreatingPr] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
+  const [error, setError] = useState("");
+  const [prError, setPrError] = useState("");
+  const [prUrl, setPrUrl] = useState("");
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>("preview");
+
+  const hasImprovedReadme = improvedReadme !== emptyImprovedMarkdown;
+  const hasReadmeComparison =
+    originalReadme !== emptyOriginalMarkdown && hasImprovedReadme;
+  const canAnalyze = Boolean(repoUrl.trim()) && !isLoading && !isCreatingPr;
+  const canCreatePr =
+    Boolean(repoUrl.trim()) &&
+    hasImprovedReadme &&
+    !isLoading &&
+    !isCreatingPr &&
+    status === "authenticated";
+  const canCopyReadme = hasImprovedReadme && !isLoading && !isCreatingPr && !isCopying;
+
+  function dismissToast(id: number) {
+    setToasts((currentToasts) =>
+      currentToasts.filter((toast) => toast.id !== id),
+    );
+  }
+
+  function pushToast(toast: Omit<Toast, "id">) {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+
+    setToasts((currentToasts) => [...currentToasts, { ...toast, id }]);
+
+    window.setTimeout(() => {
+      dismissToast(id);
+    }, 4500);
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!repoUrl.trim()) {
+      const message = "Enter a GitHub repository URL first.";
+      setError(message);
+      pushToast({ kind: "error", message });
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+    setPrError("");
+    setPrUrl("");
+
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ repoUrl }),
+      });
+
+      const data = (await response.json()) as AnalyzeResponse;
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(
+            response.status,
+            data.error ?? "We could not analyze that repository.",
+          ),
+        );
+      }
+
+      setOriginalReadme(data.original ?? "# Original README unavailable");
+      setImprovedReadme(data.improved ?? "# Improved README unavailable");
+      pushToast({
+        kind: "success",
+        message: "README analysis complete. Your improved version is ready.",
+      });
+    } catch (submitError) {
+      const message =
+        submitError instanceof Error
+          ? submitError.message
+          : "Something went wrong while analyzing the README.";
+
+      setError(message);
+      pushToast({ kind: "error", message });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleCreatePullRequest() {
+    if (!repoUrl.trim()) {
+      const message = "Enter a GitHub repository URL first.";
+      setPrError(message);
+      pushToast({ kind: "error", message });
+      return;
+    }
+
+    if (!hasImprovedReadme) {
+      const message = "Analyze a repository before creating a pull request.";
+      setPrError(message);
+      pushToast({ kind: "error", message });
+      return;
+    }
+
+    setIsCreatingPr(true);
+    setPrError("");
+    setPrUrl("");
+
+    try {
+      const response = await fetch("/api/create-pr", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          repoUrl,
+          improvedReadme,
+        }),
+      });
+
+      const data = (await response.json()) as CreatePrResponse;
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(
+            response.status,
+            data.error ?? "We could not create the pull request.",
+          ),
+        );
+      }
+
+      if (!data.prUrl) {
+        throw new Error("The pull request was created, but no URL was returned.");
+      }
+
+      setPrUrl(data.prUrl);
+      pushToast({
+        kind: "success",
+        message: "Pull request is ready on GitHub.",
+        actionHref: data.prUrl,
+        actionLabel: "Open PR",
+      });
+    } catch (createPrError) {
+      const message =
+        createPrError instanceof Error
+          ? createPrError.message
+          : "Something went wrong while creating the pull request.";
+
+      setPrError(message);
+      pushToast({ kind: "error", message });
+    } finally {
+      setIsCreatingPr(false);
+    }
+  }
+
+  async function handleCopyReadme() {
+    if (!hasImprovedReadme) {
+      pushToast({
+        kind: "error",
+        message: "Generate an improved README before copying it.",
+      });
+      return;
+    }
+
+    if (!navigator.clipboard) {
+      pushToast({
+        kind: "error",
+        message: "Clipboard access is unavailable in this browser.",
+      });
+      return;
+    }
+
+    setIsCopying(true);
+
+    try {
+      await navigator.clipboard.writeText(improvedReadme);
+      pushToast({
+        kind: "success",
+        message: "Improved README copied to your clipboard.",
+      });
+    } catch {
+      pushToast({
+        kind: "error",
+        message: "We could not copy the README to your clipboard.",
+      });
+    } finally {
+      setIsCopying(false);
+    }
+  }
+
+  const activityMessage = isLoading
+    ? "Fetching the original README and drafting a stronger rewrite..."
+    : isCreatingPr
+      ? "Creating a GitHub branch, committing the README update, and opening a pull request..."
+      : status !== "authenticated"
+        ? "Sign in with GitHub to create a pull request once the README looks right."
+        : "Preview shows both versions side by side. Diff highlights the exact edits.";
+
+  return (
+    <main className="relative isolate overflow-hidden">
+      <div className="absolute inset-0 -z-10 bg-grid bg-[size:72px_72px] opacity-10" />
+
+      <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-[min(100%-2rem,24rem)] flex-col gap-3">
+        {toasts.map((toast) => (
+          <div
+            className={`pointer-events-auto rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-xl ${
+              toast.kind === "success"
+                ? "border-mint/30 bg-slate-950/90 text-mint"
+                : "border-red-400/30 bg-slate-950/90 text-red-200"
+            }`}
+            key={toast.id}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">{toast.message}</p>
+                {toast.actionHref ? (
+                  <a
+                    className="inline-flex text-sm font-semibold underline underline-offset-4 hover:text-white"
+                    href={toast.actionHref}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {toast.actionLabel ?? "Open"}
+                  </a>
+                ) : null}
+              </div>
+
+              <button
+                aria-label="Dismiss notification"
+                className="text-sm text-slate-400 transition hover:text-white"
+                onClick={() => dismissToast(toast.id)}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <section className="mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-6 py-16 sm:px-10">
+        <div className="w-full max-w-7xl rounded-[32px] border border-white/10 bg-white/8 p-6 shadow-glow backdrop-blur-xl sm:p-10">
+          <nav className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.28em] text-sky-200/80">
+                README Auto Doctor
+              </p>
+              <p className="mt-2 text-sm text-slate-300">
+                Sign in with GitHub to connect your account before repository write features land.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {status === "authenticated" ? (
+                <>
+                  <div className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-2">
+                    {session.user?.image ? (
+                      <img
+                        alt={session.user?.name ?? "GitHub avatar"}
+                        className="h-10 w-10 rounded-full border border-white/10 object-cover"
+                        referrerPolicy="no-referrer"
+                        src={session.user.image}
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-sky-300/10 text-sm font-semibold text-sky-100">
+                        {(session.user?.name ?? session.user?.email ?? "G")
+                          .charAt(0)
+                          .toUpperCase()}
+                      </div>
+                    )}
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white">
+                        {session.user?.name ?? "GitHub user"}
+                      </p>
+                      <p className="truncate text-xs text-slate-400">
+                        {session.user?.email ?? "Authenticated with GitHub"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isLoading || isCreatingPr}
+                    onClick={() => signOut()}
+                    type="button"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-ink transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={status === "loading" || isLoading || isCreatingPr}
+                  onClick={() => signIn("github")}
+                  type="button"
+                >
+                  {status === "loading" ? "Loading..." : "Login with GitHub"}
+                </button>
+              )}
+            </div>
+          </nav>
+
+          <div className="mx-auto mt-10 max-w-3xl text-center">
+            <span className="inline-flex rounded-full border border-sky-300/25 bg-sky-300/10 px-4 py-1 text-sm font-medium text-sky-100">
+              README Auto Doctor
+            </span>
+            <h1 className="mt-6 text-4xl font-semibold tracking-tight text-white sm:text-6xl">
+              Compare the original README against an AI-improved rewrite.
+            </h1>
+            <p className="mt-4 text-base leading-7 text-slate-300 sm:text-lg">
+              Fetch a repository README, improve it with OpenAI, then inspect the polished version in preview or diff mode.
+            </p>
+          </div>
+
+          <form
+            className="mx-auto mt-10 flex max-w-5xl flex-col gap-4 rounded-[28px] border border-white/10 bg-ink/60 p-4 sm:flex-row sm:items-center"
+            onSubmit={handleSubmit}
+          >
+            <input
+              aria-label="GitHub repository URL"
+              className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-mint/70 focus:ring-2 focus:ring-mint/30 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isLoading || isCreatingPr}
+              onChange={(event) => {
+                setRepoUrl(event.target.value);
+                setError("");
+                setPrError("");
+                setPrUrl("");
+              }}
+              placeholder="https://github.com/owner/repository"
+              type="url"
+              value={repoUrl}
+            />
+            <button
+              className="inline-flex min-w-44 items-center justify-center gap-2 rounded-2xl bg-mint px-6 py-4 text-sm font-semibold text-ink transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={!canAnalyze}
+              type="submit"
+            >
+              {isLoading ? (
+                <>
+                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-ink" />
+                  Analyzing...
+                </>
+              ) : (
+                "Analyze README"
+              )}
+            </button>
+          </form>
+
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
+            <div className="inline-flex rounded-2xl border border-white/10 bg-slate-950/50 p-1">
+              <button
+                className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                  viewMode === "preview"
+                    ? "bg-white text-ink"
+                    : "text-slate-300 hover:text-white"
+                } disabled:cursor-not-allowed disabled:opacity-50`}
+                disabled={isLoading}
+                onClick={() => setViewMode("preview")}
+                type="button"
+              >
+                Preview
+              </button>
+              <button
+                className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                  viewMode === "diff"
+                    ? "bg-white text-ink"
+                    : "text-slate-300 hover:text-white"
+                } disabled:cursor-not-allowed disabled:opacity-50`}
+                disabled={isLoading}
+                onClick={() => setViewMode("diff")}
+                type="button"
+              >
+                Diff
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <button
+                className="inline-flex min-w-40 items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canCopyReadme}
+                onClick={() => void handleCopyReadme()}
+                type="button"
+              >
+                {isCopying ? "Copying..." : "Copy README"}
+              </button>
+
+              <button
+                className="inline-flex min-w-44 items-center justify-center rounded-2xl border border-mint/30 bg-mint/10 px-5 py-3 text-sm font-semibold text-mint transition hover:bg-mint/15 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canCreatePr}
+                onClick={() => void handleCreatePullRequest()}
+                type="button"
+              >
+                {isCreatingPr ? "Creating Pull Request..." : "Create Pull Request"}
+              </button>
+
+              <div className="max-w-xl rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-200">
+                {activityMessage}
+              </div>
+            </div>
+          </div>
+
+          {error ? (
+            <p className="mt-6 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </p>
+          ) : null}
+
+          {prError ? (
+            <p className="mt-6 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+              {prError}
+            </p>
+          ) : null}
+
+          {prUrl ? (
+            <p className="mt-6 rounded-2xl border border-mint/20 bg-mint/10 px-4 py-3 text-sm text-mint">
+              Pull request ready.{" "}
+              <a
+                className="font-semibold underline decoration-mint/70 underline-offset-4 hover:text-white"
+                href={prUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open PR
+              </a>
+            </p>
+          ) : null}
+
+          <div className="mt-8 rounded-[28px] border border-white/10 bg-slate-950/60 p-4 sm:p-6">
+            {isLoading ? (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-[24px] border border-mint/15 bg-mint/5 px-5 py-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      Building your README comparison
+                    </p>
+                    <p className="mt-1 text-sm text-slate-300">
+                      We are fetching the repository README, then rewriting it into a cleaner version.
+                    </p>
+                  </div>
+                  <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-sm text-mint">
+                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-mint" />
+                    In progress
+                  </div>
+                </div>
+
+                <LoadingPreview />
+              </div>
+            ) : viewMode === "preview" ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <section className="overflow-hidden rounded-[24px] border border-white/10 bg-black/25">
+                  <div className="border-b border-white/10 px-5 py-4">
+                    <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-400">
+                      Original README
+                    </p>
+                  </div>
+                  <article className="prose prose-invert prose-slate max-w-none overflow-x-auto p-6 prose-headings:text-white prose-p:text-slate-200 prose-strong:text-white prose-a:text-mint prose-code:text-sky-200 prose-pre:border prose-pre:border-white/10 prose-pre:bg-slate-950/80 prose-blockquote:border-sky-400/40 prose-blockquote:text-slate-300">
+                    <ReactMarkdown>{originalReadme}</ReactMarkdown>
+                  </article>
+                </section>
+
+                <section className="overflow-hidden rounded-[24px] border border-mint/20 bg-mint/5">
+                  <div className="flex items-center justify-between gap-3 border-b border-mint/15 px-5 py-4">
+                    <p className="text-sm font-medium uppercase tracking-[0.2em] text-mint">
+                      Improved README
+                    </p>
+                    <button
+                      className="inline-flex items-center justify-center rounded-full border border-mint/20 bg-mint/10 px-3 py-1 text-xs font-semibold text-mint transition hover:bg-mint/15 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={!canCopyReadme}
+                      onClick={() => void handleCopyReadme()}
+                      type="button"
+                    >
+                      {isCopying ? "Copying..." : "Copy"}
+                    </button>
+                  </div>
+                  <article className="prose prose-invert prose-slate max-w-none overflow-x-auto p-6 prose-headings:text-white prose-p:text-slate-100 prose-strong:text-white prose-a:text-mint prose-code:text-sky-200 prose-pre:border prose-pre:border-white/10 prose-pre:bg-slate-950/80 prose-blockquote:border-mint/40 prose-blockquote:text-slate-300">
+                    <ReactMarkdown>{improvedReadme}</ReactMarkdown>
+                  </article>
+                </section>
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-[24px] border border-white/10 bg-[#0d1526] p-2">
+                <ReactDiffViewer
+                  hideLineNumbers={false}
+                  leftTitle="Original README"
+                  newValue={improvedReadme}
+                  oldValue={originalReadme}
+                  rightTitle="Improved README"
+                  splitView
+                  styles={{
+                    variables: {
+                      dark: {
+                        addedBackground: "rgba(16, 185, 129, 0.18)",
+                        addedColor: "#f8fafc",
+                        addedGutterBackground: "rgba(16, 185, 129, 0.12)",
+                        addedGutterColor: "#a7f3d0",
+                        codeFoldBackground: "#0f172a",
+                        codeFoldContentColor: "#cbd5e1",
+                        codeFoldGutterBackground: "#111827",
+                        diffViewerBackground: "#0d1526",
+                        diffViewerColor: "#e2e8f0",
+                        emptyLineBackground: "#0d1526",
+                        gutterBackground: "#111827",
+                        gutterBackgroundDark: "#0f172a",
+                        gutterColor: "#64748b",
+                        highlightBackground: "rgba(106, 168, 255, 0.14)",
+                        highlightGutterBackground: "rgba(106, 168, 255, 0.12)",
+                        removedBackground: "rgba(248, 113, 113, 0.18)",
+                        removedColor: "#f8fafc",
+                        removedGutterBackground: "rgba(248, 113, 113, 0.12)",
+                        removedGutterColor: "#fecaca",
+                        wordAddedBackground: "rgba(52, 211, 153, 0.32)",
+                        wordRemovedBackground: "rgba(248, 113, 113, 0.32)",
+                      },
+                    },
+                    contentText: {
+                      fontSize: "0.875rem",
+                      lineHeight: "1.6",
+                    },
+                    diffContainer: {
+                      border: "0",
+                    },
+                    marker: {
+                      minWidth: "32px",
+                    },
+                  }}
+                  useDarkTheme
+                />
+              </div>
+            )}
+          </div>
+
+          {!hasReadmeComparison && !isLoading ? (
+            <p className="mt-6 text-center text-sm text-slate-400">
+              Run an analysis to unlock copy and pull request actions for the improved README.
+            </p>
+          ) : null}
+        </div>
+      </section>
+    </main>
+  );
+}
