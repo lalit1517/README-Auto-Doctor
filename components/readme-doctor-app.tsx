@@ -6,7 +6,7 @@ import ReactDiffViewer from "react-diff-viewer-continued";
 import ReactMarkdown from "react-markdown";
 
 type AnalyzeResponse = {
-  original?: string;
+  original?: string | null;
   improved?: string;
   error?: string;
 };

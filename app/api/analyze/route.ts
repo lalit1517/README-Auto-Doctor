@@ -24,12 +24,26 @@ type GitHubContentFile = {
 type RepositoryContext = {
   files: string[];
   packageJson: Record<string, unknown> | null;
-  readme: string;
+  readme: string | null;
 };
+
+class GitHubDecodeError extends Error {
+  constructor(message = "GitHub content could not be decoded.") {
+    super(message);
+    this.name = "GitHubDecodeError";
+  }
+}
+
+class PackageJsonParseError extends Error {
+  constructor(message = "package.json could not be parsed.") {
+    super(message);
+    this.name = "PackageJsonParseError";
+  }
+}
 
 function decodeGitHubContentFile(file: GitHubContentFile) {
   if (!file.content || file.encoding !== "base64") {
-    throw new Error("GitHub content could not be decoded.");
+    throw new GitHubDecodeError();
   }
 
   return Buffer.from(file.content.replace(/\n/g, ""), "base64").toString("utf-8");
@@ -42,7 +56,7 @@ async function fetchReadme(owner: string, repo: string) {
   });
 
   if (response.status === 404) {
-    return "";
+    return null;
   }
 
   if (!response.ok) {
@@ -108,7 +122,7 @@ async function fetchPackageJson(owner: string, repo: string) {
   try {
     return JSON.parse(decodedPackageJson) as Record<string, unknown>;
   } catch {
-    throw new Error("package.json could not be parsed.");
+    throw new PackageJsonParseError();
   }
 }
 
@@ -191,14 +205,14 @@ export async function POST(request: Request) {
       );
     }
 
-    if (error instanceof Error && error.message === "GitHub content could not be decoded.") {
+    if (error instanceof GitHubDecodeError) {
       return NextResponse.json(
         { error: "GitHub content could not be decoded." },
         { status: 500 },
       );
     }
 
-    if (error instanceof Error && error.message === "package.json could not be parsed.") {
+    if (error instanceof PackageJsonParseError) {
       return NextResponse.json(
         { error: "package.json could not be parsed." },
         { status: 500 },
