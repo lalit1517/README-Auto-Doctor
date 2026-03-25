@@ -38,7 +38,7 @@ function decodeGitHubContentFile(file: GitHubContentFile) {
     throw new GitHubDecodeError();
   }
 
-  return Buffer.from(file.content.replace(/\n/g, ""), "base64").toString("utf-8");
+  return Buffer.from(file.content, "base64").toString("utf-8");
 }
 
 function getRepositoryGitHubHeaders(accessToken: string | null) {
