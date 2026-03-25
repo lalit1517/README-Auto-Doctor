@@ -10,6 +10,7 @@ import {
   OpenRouterRequestError,
   generateReadmeFromRepositoryContext,
 } from "@/lib/openrouter";
+import { detectProjectStack } from "@/lib/project-detection";
 
 type AnalyzePayload = {
   repoUrl?: string;
@@ -23,9 +24,11 @@ type GitHubContentFile = {
 };
 
 type RepositoryContext = {
+  detection: ReturnType<typeof detectProjectStack>;
   files: string[];
   packageJson: Record<string, unknown> | null;
   readme: string | null;
+  requirementsTxt: string | null;
 };
 
 class GitHubDecodeError extends Error {
@@ -40,6 +43,35 @@ class PackageJsonParseError extends Error {
     super(message);
     this.name = "PackageJsonParseError";
   }
+}
+
+async function fetchOptionalTextFile(
+  owner: string,
+  repo: string,
+  path: string,
+  accessToken: string | null,
+) {
+  const response = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`,
+    {
+      headers: getAnalyzeGitHubHeaders(accessToken),
+      cache: "no-store",
+    },
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    await throwGitHubRequestError(
+      response,
+      `Unable to fetch ${path} from GitHub.`,
+    );
+  }
+
+  const data = (await response.json()) as GitHubContentFile;
+  return decodeGitHubContentFile(data);
 }
 
 function decodeGitHubContentFile(file: GitHubContentFile) {
@@ -107,27 +139,16 @@ async function fetchRootFiles(owner: string, repo: string, accessToken: string |
 }
 
 async function fetchPackageJson(owner: string, repo: string, accessToken: string | null) {
-  const response = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/contents/package.json`,
-    {
-      headers: getAnalyzeGitHubHeaders(accessToken),
-      cache: "no-store",
-    },
+  const decodedPackageJson = await fetchOptionalTextFile(
+    owner,
+    repo,
+    "package.json",
+    accessToken,
   );
 
-  if (response.status === 404) {
+  if (!decodedPackageJson) {
     return null;
   }
-
-  if (!response.ok) {
-    await throwGitHubRequestError(
-      response,
-      "Unable to fetch package.json from GitHub.",
-    );
-  }
-
-  const data = (await response.json()) as GitHubContentFile;
-  const decodedPackageJson = decodeGitHubContentFile(data);
 
   try {
     return JSON.parse(decodedPackageJson) as Record<string, unknown>;
@@ -141,16 +162,25 @@ async function buildRepositoryContext(
   repo: string,
   accessToken: string | null,
 ): Promise<RepositoryContext> {
-  const [readme, files, packageJson] = await Promise.all([
+  const [readme, files, packageJson, requirementsTxt] = await Promise.all([
     fetchReadme(owner, repo, accessToken),
     fetchRootFiles(owner, repo, accessToken),
     fetchPackageJson(owner, repo, accessToken),
+    fetchOptionalTextFile(owner, repo, "requirements.txt", accessToken),
   ]);
 
+  const detection = detectProjectStack({
+    files,
+    packageJson,
+    requirementsTxt,
+  });
+
   return {
+    detection,
     readme,
     files,
     packageJson,
+    requirementsTxt,
   };
 }
 
