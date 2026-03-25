@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import ReactDiffViewer from "react-diff-viewer-continued";
 import ReactMarkdown from "react-markdown";
@@ -18,6 +18,11 @@ type AnalyzeResponse = {
 type CreatePrResponse = {
   prUrl?: string;
   error?: string;
+};
+
+type ExplainResponse = {
+  error?: string;
+  explanation?: string;
 };
 
 type Toast = {
@@ -92,6 +97,10 @@ function getApiErrorMessage(status: number, fallback: string) {
 }
 
 export function ReadmeDoctorApp() {
+  const explanationDialogTitleId = useId();
+  const closeExplanationButtonRef = useRef<HTMLButtonElement | null>(null);
+  const explanationDialogRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusedElementRef = useRef<HTMLElement | null>(null);
   const { data: session, status } = useSession();
   const [repoUrl, setRepoUrl] = useState("");
   const [originalReadme, setOriginalReadme] = useState(emptyOriginalMarkdown);
@@ -99,7 +108,10 @@ export function ReadmeDoctorApp() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [isExplainingProject, setIsExplainingProject] = useState(false);
   const [error, setError] = useState("");
+  const [explanationError, setExplanationError] = useState("");
+  const [projectExplanation, setProjectExplanation] = useState("");
   const [prError, setPrError] = useState("");
   const [prUrl, setPrUrl] = useState("");
   const [issues, setIssues] = useState<string[]>([]);
@@ -107,11 +119,16 @@ export function ReadmeDoctorApp() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("preview");
+  const [isExplanationOpen, setIsExplanationOpen] = useState(false);
 
   const hasImprovedReadme = improvedReadme !== emptyImprovedMarkdown;
   const hasReadmeComparison =
     originalReadme !== emptyOriginalMarkdown && hasImprovedReadme;
-  const canAnalyze = Boolean(repoUrl.trim()) && !isLoading && !isCreatingPr;
+  const canAnalyze =
+    Boolean(repoUrl.trim()) &&
+    !isLoading &&
+    !isCreatingPr &&
+    !isExplainingProject;
   const canCreatePr =
     Boolean(repoUrl.trim()) &&
     hasImprovedReadme &&
@@ -119,6 +136,11 @@ export function ReadmeDoctorApp() {
     !isCreatingPr &&
     status === "authenticated";
   const canCopyReadme = hasImprovedReadme && !isLoading && !isCreatingPr && !isCopying;
+  const canExplainProject =
+    Boolean(repoUrl.trim()) &&
+    !isLoading &&
+    !isCreatingPr &&
+    !isExplainingProject;
 
   function dismissToast(id: number) {
     setToasts((currentToasts) =>
@@ -139,6 +161,10 @@ export function ReadmeDoctorApp() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (isExplainingProject) {
+      return;
+    }
+
     if (!repoUrl.trim()) {
       const message = "Enter a GitHub repository URL first.";
       setError(message);
@@ -148,6 +174,9 @@ export function ReadmeDoctorApp() {
 
     setIsLoading(true);
     setError("");
+    setExplanationError("");
+    setProjectExplanation("");
+    setIsExplanationOpen(false);
     setPrError("");
     setPrUrl("");
     setIssues([]);
@@ -262,6 +291,61 @@ export function ReadmeDoctorApp() {
     }
   }
 
+  async function handleExplainProject() {
+    if (!repoUrl.trim()) {
+      const message = "Enter a GitHub repository URL first.";
+      setExplanationError(message);
+      pushToast({ kind: "error", message });
+      return;
+    }
+
+    setIsExplainingProject(true);
+    setExplanationError("");
+    setProjectExplanation("");
+
+    try {
+      const response = await fetch("/api/explain", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ repoUrl }),
+      });
+
+      const data = (await response.json()) as ExplainResponse;
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(
+            response.status,
+            data.error ?? "We could not explain that project.",
+          ),
+        );
+      }
+
+      if (!data.explanation) {
+        throw new Error("The project explanation was empty.");
+      }
+
+      setProjectExplanation(data.explanation);
+      setIsExplanationOpen(true);
+      pushToast({
+        kind: "success",
+        message: "Project explanation is ready.",
+      });
+    } catch (explainError) {
+      const message =
+        explainError instanceof Error
+          ? explainError.message
+          : "Something went wrong while explaining the project.";
+
+      setExplanationError(message);
+      pushToast({ kind: "error", message });
+    } finally {
+      setIsExplainingProject(false);
+    }
+  }
+
   async function handleCopyReadme() {
     if (!hasImprovedReadme) {
       pushToast({
@@ -299,11 +383,71 @@ export function ReadmeDoctorApp() {
 
   const activityMessage = isLoading
     ? "Fetching the original README and drafting a stronger rewrite..."
+    : isExplainingProject
+      ? "Reviewing the repository and preparing a beginner-friendly project explanation..."
     : isCreatingPr
       ? "Creating a GitHub branch, committing the README update, and opening a pull request..."
       : status !== "authenticated"
         ? "Sign in with GitHub to create a pull request once the README looks right."
         : "Preview shows both versions side by side. Diff highlights the exact edits.";
+
+  useEffect(() => {
+    if (!isExplanationOpen) {
+      return;
+    }
+
+    previousFocusedElementRef.current = document.activeElement as HTMLElement | null;
+    closeExplanationButtonRef.current?.focus();
+
+    function handleDialogKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsExplanationOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const dialogElement = explanationDialogRef.current;
+
+      if (!dialogElement) {
+        return;
+      }
+
+      const focusableElements = Array.from(
+        dialogElement.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute("disabled"));
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        dialogElement.focus();
+        return;
+      }
+
+      const firstFocusableElement = focusableElements[0];
+      const lastFocusableElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement as HTMLElement | null;
+
+      if (event.shiftKey && activeElement === firstFocusableElement) {
+        event.preventDefault();
+        lastFocusableElement.focus();
+      } else if (!event.shiftKey && activeElement === lastFocusableElement) {
+        event.preventDefault();
+        firstFocusableElement.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleDialogKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleDialogKeyDown);
+      previousFocusedElementRef.current?.focus();
+    };
+  }, [isExplanationOpen]);
 
   return (
     <main className="relative isolate overflow-hidden">
@@ -429,7 +573,7 @@ export function ReadmeDoctorApp() {
             <input
               aria-label="GitHub repository URL"
               className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-mint/70 focus:ring-2 focus:ring-mint/30 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isLoading || isCreatingPr}
+              disabled={isLoading || isCreatingPr || isExplainingProject}
               onChange={(event) => {
                 setRepoUrl(event.target.value);
                 setError("");
@@ -489,6 +633,15 @@ export function ReadmeDoctorApp() {
 
             <div className="flex flex-wrap items-center justify-end gap-3">
               <button
+                className="inline-flex min-w-40 items-center justify-center rounded-2xl border border-sky-300/20 bg-sky-300/10 px-5 py-3 text-sm font-semibold text-sky-100 transition hover:bg-sky-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canExplainProject}
+                onClick={() => void handleExplainProject()}
+                type="button"
+              >
+                {isExplainingProject ? "Explaining..." : "Explain Project"}
+              </button>
+
+              <button
                 className="inline-flex min-w-40 items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={!canCopyReadme}
                 onClick={() => void handleCopyReadme()}
@@ -515,6 +668,12 @@ export function ReadmeDoctorApp() {
           {error ? (
             <p className="mt-6 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
               {error}
+            </p>
+          ) : null}
+
+          {explanationError ? (
+            <p className="mt-6 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+              {explanationError}
             </p>
           ) : null}
 
@@ -703,6 +862,48 @@ export function ReadmeDoctorApp() {
           ) : null}
         </div>
       </section>
+
+      {isExplanationOpen ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 px-6 backdrop-blur-sm">
+          <div
+            aria-labelledby={explanationDialogTitleId}
+            aria-modal="true"
+            className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-[#081322] p-6 shadow-2xl sm:p-8"
+            ref={explanationDialogRef}
+            role="dialog"
+            tabIndex={-1}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium uppercase tracking-[0.24em] text-sky-200/80">
+                  Project Summary
+                </p>
+                <h2
+                  className="mt-3 text-2xl font-semibold text-white"
+                  id={explanationDialogTitleId}
+                >
+                  Explain Project
+                </h2>
+              </div>
+
+              <button
+                className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+                ref={closeExplanationButtonRef}
+                onClick={() => setIsExplanationOpen(false)}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 rounded-[24px] border border-white/10 bg-slate-950/50 p-5">
+              <p className="whitespace-pre-line text-sm leading-7 text-slate-200">
+                {projectExplanation}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
