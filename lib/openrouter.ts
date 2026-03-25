@@ -139,6 +139,92 @@ function sanitizeForFence(value: string) {
   return value.replace(/```/g, "\\`\\`\\`");
 }
 
+function inferFenceLanguage(content: string) {
+  const trimmedContent = content.trim();
+  const [firstLine = ""] = trimmedContent.split("\n");
+  const normalizedFirstLine = firstLine.trim().toLowerCase();
+
+  if (/^[a-z0-9.+#_-]{1,20}$/.test(normalizedFirstLine)) {
+    return normalizedFirstLine;
+  }
+
+  if (
+    /^(npm|pnpm|yarn|bun|npx|git|node|python|pip|docker|docker-compose|cp|mv|rm|mkdir)\b/m.test(
+      trimmedContent,
+    )
+  ) {
+    return "bash";
+  }
+
+  return "text";
+}
+
+function normalizeMultiLineInlineCode(markdown: string) {
+  return markdown.replace(/`([^`]*\n[^`]*)`/g, (_match, content: string) => {
+    const normalizedContent = content.replace(/\r\n/g, "\n");
+    const trimmedContent = normalizedContent.trim();
+
+    if (!trimmedContent) {
+      return "```text\n```";
+    }
+
+    const lines = trimmedContent.split("\n");
+    const [firstLine = "", ...restLines] = lines;
+    const looksLikeLanguageTag = /^[a-z0-9.+#_-]{1,20}$/i.test(firstLine.trim());
+    const language = looksLikeLanguageTag
+      ? firstLine.trim().toLowerCase()
+      : inferFenceLanguage(trimmedContent);
+    const body = looksLikeLanguageTag ? restLines.join("\n").trim() : trimmedContent;
+
+    return `\`\`\`${language}\n${body}\n\`\`\``;
+  });
+}
+
+function normalizeGeneratedMarkdown(markdown: string) {
+  const normalizedLineEndings = normalizeMultiLineInlineCode(
+    markdown.replace(/\r\n/g, "\n"),
+  );
+  const outputLines: string[] = [];
+  let insideCodeFence = false;
+
+  for (const rawLine of normalizedLineEndings.split("\n")) {
+    const trimmedLineStart = rawLine.trimStart();
+    const isFenceLine = trimmedLineStart.startsWith("```");
+
+    if (isFenceLine) {
+      outputLines.push(rawLine);
+      insideCodeFence = !insideCodeFence;
+      continue;
+    }
+
+    if (insideCodeFence) {
+      outputLines.push(rawLine);
+      continue;
+    }
+
+    const normalizedLine = rawLine.replace(/^(#{1,6})(\S)/, "$1 $2");
+    const isHeading = /^(#{1,6})\s/.test(normalizedLine);
+
+    if (
+      isHeading &&
+      outputLines.length > 0 &&
+      outputLines[outputLines.length - 1] !== ""
+    ) {
+      outputLines.push("");
+    }
+
+    if (normalizedLine === "") {
+      if (outputLines.length === 0 || outputLines[outputLines.length - 1] === "") {
+        continue;
+      }
+    }
+
+    outputLines.push(normalizedLine);
+  }
+
+  return outputLines.join("\n");
+}
+
 function formatArtifactBlock(label: string, language: string, content: string) {
   return `BEGIN ${label}\n\`\`\`${language}\n${sanitizeForFence(content)}\n\`\`\`\nEND ${label}`;
 }
@@ -589,7 +675,7 @@ async function requestReadmeGeneration(
     );
   }
 
-  return improved;
+  return normalizeGeneratedMarkdown(improved);
 }
 
 async function requestReadmeEvaluation(
