@@ -30,6 +30,12 @@ type OpenRouterResponse = {
   };
 };
 
+type ReadmeEvaluation = {
+  issues: string[];
+  score: number;
+  suggestions: string[];
+};
+
 const MAX_README_CHARS = 12000;
 const MAX_FILES = 200;
 const MAX_FILE_LIST_CHARS = 4000;
@@ -68,6 +74,32 @@ async function parseOpenRouterError(response: Response) {
   } catch {
     return "OpenRouter API request failed.";
   }
+}
+
+function extractJsonObject(content: string) {
+  const trimmedContent = content.trim();
+
+  if (trimmedContent.startsWith("{") && trimmedContent.endsWith("}")) {
+    return trimmedContent;
+  }
+
+  const fencedJsonMatch = trimmedContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+
+  if (fencedJsonMatch?.[1]) {
+    return fencedJsonMatch[1].trim();
+  }
+
+  const firstBrace = trimmedContent.indexOf("{");
+  const lastBrace = trimmedContent.lastIndexOf("}");
+
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return trimmedContent.slice(firstBrace, lastBrace + 1);
+  }
+
+  throw new OpenRouterRequestError(
+    "OpenRouter returned an invalid README evaluation payload.",
+    502,
+  );
 }
 
 function trimText(value: string, maxLength: number) {
@@ -208,8 +240,43 @@ ${sanitizedContext.requirements}`,
   ];
 }
 
-async function requestReadmeGeneration(
-  context: RepositoryReadmeContext,
+function buildReadmeEvaluationMessages(readme: string): OpenRouterMessage[] {
+  return [
+    {
+      role: "system",
+      content: "You evaluate GitHub READMEs and return strict JSON only.",
+    },
+    {
+      role: "user",
+      content: `Evaluate this GitHub README and return:
+
+- score (0-100)
+- issues (array)
+- suggestions (array)
+
+Criteria:
+- structure
+- clarity
+- completeness
+- formatting
+
+Return JSON:
+{
+  "score": number,
+  "issues": string[],
+  "suggestions": string[]
+}
+
+README:
+\`\`\`md
+${sanitizeForFence(trimText(readme, MAX_README_CHARS))}
+\`\`\``,
+    },
+  ];
+}
+
+async function requestOpenRouterText(
+  messages: OpenRouterMessage[],
   model: string,
   apiKey: string,
 ) {
@@ -221,7 +288,7 @@ async function requestReadmeGeneration(
     },
     body: JSON.stringify({
       model,
-      messages: buildMessages(context),
+      messages,
     }),
     cache: "no-store",
   });
@@ -234,7 +301,28 @@ async function requestReadmeGeneration(
   }
 
   const data = (await response.json()) as OpenRouterResponse;
-  const improved = data.choices?.[0]?.message?.content?.trim();
+  const content = data.choices?.[0]?.message?.content?.trim();
+
+  if (!content) {
+    throw new OpenRouterRequestError(
+      `OpenRouter returned an empty response for model "${model}".`,
+      502,
+    );
+  }
+
+  return content;
+}
+
+async function requestReadmeGeneration(
+  context: RepositoryReadmeContext,
+  model: string,
+  apiKey: string,
+) {
+  const improved = await requestOpenRouterText(
+    buildMessages(context),
+    model,
+    apiKey,
+  );
 
   if (!improved) {
     throw new OpenRouterRequestError(
@@ -244,6 +332,71 @@ async function requestReadmeGeneration(
   }
 
   return improved;
+}
+
+async function requestReadmeEvaluation(
+  readme: string,
+  model: string,
+  apiKey: string,
+) {
+  const content = await requestOpenRouterText(
+    buildReadmeEvaluationMessages(readme),
+    model,
+    apiKey,
+  );
+
+  let parsedEvaluation: unknown;
+
+  try {
+    parsedEvaluation = JSON.parse(extractJsonObject(content));
+  } catch {
+    throw new OpenRouterRequestError(
+      "OpenRouter returned malformed README evaluation JSON.",
+      502,
+    );
+  }
+
+  if (
+    !parsedEvaluation ||
+    typeof parsedEvaluation !== "object" ||
+    !("score" in parsedEvaluation) ||
+    !("issues" in parsedEvaluation) ||
+    !("suggestions" in parsedEvaluation)
+  ) {
+    throw new OpenRouterRequestError(
+      "OpenRouter returned an incomplete README evaluation payload.",
+      502,
+    );
+  }
+
+  const evaluation = parsedEvaluation as {
+    issues?: unknown;
+    score?: unknown;
+    suggestions?: unknown;
+  };
+
+  const score = Number(evaluation.score);
+  const issues = Array.isArray(evaluation.issues)
+    ? evaluation.issues.filter((issue): issue is string => typeof issue === "string")
+    : [];
+  const suggestions = Array.isArray(evaluation.suggestions)
+    ? evaluation.suggestions.filter(
+        (suggestion): suggestion is string => typeof suggestion === "string",
+      )
+    : [];
+
+  if (!Number.isFinite(score)) {
+    throw new OpenRouterRequestError(
+      "OpenRouter returned an invalid README score.",
+      502,
+    );
+  }
+
+  return {
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    issues,
+    suggestions,
+  } satisfies ReadmeEvaluation;
 }
 
 export async function generateReadmeFromRepositoryContext(
@@ -274,6 +427,37 @@ export async function generateReadmeFromRepositoryContext(
     lastError ??
     new OpenRouterRequestError(
       "OpenRouter did not return a generated README.",
+      502,
+    )
+  );
+}
+
+export async function evaluateReadmeWithOpenRouter(readme: string) {
+  const apiKey = getOpenRouterApiKey();
+
+  if (!apiKey) {
+    throw new OpenRouterRequestError("Missing OPENROUTER_API_KEY.", 500);
+  }
+
+  let lastError: OpenRouterRequestError | null = null;
+
+  for (const model of getPreferredModels()) {
+    try {
+      return await requestReadmeEvaluation(readme, model, apiKey);
+    } catch (error) {
+      if (error instanceof OpenRouterRequestError) {
+        lastError = error;
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw (
+    lastError ??
+    new OpenRouterRequestError(
+      "OpenRouter did not return a README evaluation.",
       502,
     )
   );

@@ -8,6 +8,7 @@ import {
 } from "@/lib/github";
 import {
   OpenRouterRequestError,
+  evaluateReadmeWithOpenRouter,
   generateReadmeFromRepositoryContext,
 } from "@/lib/openrouter";
 import { detectProjectStack } from "@/lib/project-detection";
@@ -219,11 +220,25 @@ export async function POST(request: Request) {
   try {
     const accessToken = await getGitHubToken();
     const context = await buildRepositoryContext(owner, repo, accessToken);
-    const improved = await generateReadmeFromRepositoryContext(context);
+    const [improved, evaluation] = await Promise.all([
+      generateReadmeFromRepositoryContext(context),
+      context.readme
+        ? evaluateReadmeWithOpenRouter(context.readme)
+        : Promise.resolve({
+            score: 0,
+            issues: ["No existing README found."],
+            suggestions: [
+              "Add an initial README with project overview, setup steps, and usage details.",
+            ],
+          }),
+    ]);
 
     return NextResponse.json({
       improved,
+      issues: evaluation.issues,
       original: context.readme,
+      score: evaluation.score,
+      suggestions: evaluation.suggestions,
     });
   } catch (error) {
     if (
