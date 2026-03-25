@@ -10,6 +10,7 @@ type RepositoryReadmeContext = {
   packageJson: Record<string, unknown> | null;
   readme: string | null;
   requirementsTxt: string | null;
+  structureExplanation: string;
 };
 
 type OpenRouterMessage = {
@@ -34,6 +35,10 @@ type ReadmeEvaluation = {
   issues: string[];
   score: number;
   suggestions: string[];
+};
+
+type FolderStructureExplanation = {
+  structureExplanation: string;
 };
 
 const MAX_README_CHARS = 12000;
@@ -173,6 +178,11 @@ function buildSanitizedContext(context: RepositoryReadmeContext) {
     files: formatArtifactBlock("FILES", "text", trimmedFiles),
     packageJson: formatArtifactBlock("PACKAGE_JSON", "json", trimmedPackageJson),
     requirements: formatArtifactBlock("REQUIREMENTS_TXT", "text", trimmedRequirements),
+    structureExplanation: formatArtifactBlock(
+      "FOLDER_STRUCTURE_EXPLANATION",
+      "md",
+      trimText(context.structureExplanation, 3000),
+    ),
   };
 }
 
@@ -216,6 +226,8 @@ Output should include these sections when supported by repository evidence:
 
 If a section cannot be derived from the sanitized context, do not include that particular section.
 Do not guess commands, scripts, or tools.
+When including Folder Structure, prefer the provided concise folder explanation and place it under:
+## 📂 Folder Structure
 
 Example format:
 
@@ -235,7 +247,9 @@ ${sanitizedContext.files}
 
 ${sanitizedContext.packageJson}
 
-${sanitizedContext.requirements}`,
+${sanitizedContext.requirements}
+
+${sanitizedContext.structureExplanation}`,
     },
   ];
 }
@@ -271,6 +285,30 @@ README:
 \`\`\`md
 ${sanitizeForFence(trimText(readme, MAX_README_CHARS))}
 \`\`\``,
+    },
+  ];
+}
+
+function buildFolderStructureMessages(files: string[]): OpenRouterMessage[] {
+  return [
+    {
+      role: "system",
+      content: "You explain project folder structures clearly and concisely.",
+    },
+    {
+      role: "user",
+      content: `Explain this project folder structure:
+
+FILES:
+\`\`\`text
+${sanitizeForFence(trimText(files.join("\n") || "(No files found)", MAX_FILE_LIST_CHARS))}
+\`\`\`
+
+Return:
+
+- bullet list
+- each folder explained in 1 line
+- simple and clear`,
     },
   ];
 }
@@ -399,6 +437,29 @@ async function requestReadmeEvaluation(
   } satisfies ReadmeEvaluation;
 }
 
+async function requestFolderStructureExplanation(
+  files: string[],
+  model: string,
+  apiKey: string,
+) {
+  const structureExplanation = await requestOpenRouterText(
+    buildFolderStructureMessages(files),
+    model,
+    apiKey,
+  );
+
+  if (!structureExplanation) {
+    throw new OpenRouterRequestError(
+      "OpenRouter returned an empty folder structure explanation.",
+      502,
+    );
+  }
+
+  return {
+    structureExplanation: trimText(structureExplanation, 3000),
+  } satisfies FolderStructureExplanation;
+}
+
 export async function generateReadmeFromRepositoryContext(
   context: RepositoryReadmeContext,
 ) {
@@ -458,6 +519,37 @@ export async function evaluateReadmeWithOpenRouter(readme: string) {
     lastError ??
     new OpenRouterRequestError(
       "OpenRouter did not return a README evaluation.",
+      502,
+    )
+  );
+}
+
+export async function explainFolderStructureWithOpenRouter(files: string[]) {
+  const apiKey = getOpenRouterApiKey();
+
+  if (!apiKey) {
+    throw new OpenRouterRequestError("Missing OPENROUTER_API_KEY.", 500);
+  }
+
+  let lastError: OpenRouterRequestError | null = null;
+
+  for (const model of getPreferredModels()) {
+    try {
+      return await requestFolderStructureExplanation(files, model, apiKey);
+    } catch (error) {
+      if (error instanceof OpenRouterRequestError) {
+        lastError = error;
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw (
+    lastError ??
+    new OpenRouterRequestError(
+      "OpenRouter did not return a folder structure explanation.",
       502,
     )
   );

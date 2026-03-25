@@ -10,6 +10,7 @@ type AnalyzeResponse = {
   original?: string | null;
   improved?: string;
   score?: number;
+  structureExplanation?: string;
   suggestions?: string[];
   error?: string;
 };

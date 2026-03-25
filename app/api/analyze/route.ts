@@ -9,6 +9,7 @@ import {
 import {
   OpenRouterRequestError,
   evaluateReadmeWithOpenRouter,
+  explainFolderStructureWithOpenRouter,
   generateReadmeFromRepositoryContext,
 } from "@/lib/openrouter";
 import { detectProjectStack } from "@/lib/project-detection";
@@ -30,6 +31,7 @@ type RepositoryContext = {
   packageJson: Record<string, unknown> | null;
   readme: string | null;
   requirementsTxt: string | null;
+  structureExplanation: string;
 };
 
 class GitHubDecodeError extends Error {
@@ -175,6 +177,10 @@ async function buildRepositoryContext(
     packageJson,
     requirementsTxt,
   });
+  const structureExplanation =
+    files.length > 0
+      ? (await explainFolderStructureWithOpenRouter(files)).structureExplanation
+      : "- No root-level folders or files were detected.";
 
   return {
     detection,
@@ -182,6 +188,7 @@ async function buildRepositoryContext(
     files,
     packageJson,
     requirementsTxt,
+    structureExplanation,
   };
 }
 
@@ -238,6 +245,7 @@ export async function POST(request: Request) {
       issues: evaluation.issues,
       original: context.readme,
       score: evaluation.score,
+      structureExplanation: context.structureExplanation,
       suggestions: evaluation.suggestions,
     });
   } catch (error) {
