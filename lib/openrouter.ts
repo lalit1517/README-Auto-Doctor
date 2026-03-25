@@ -125,6 +125,16 @@ function trimText(value: string, maxLength: number) {
   return `${value.slice(0, maxLength)}\n... [truncated]`;
 }
 
+function trimSingleLine(value: string, maxLength: number) {
+  const singleLineValue = value.replace(/\r?\n+/g, " ").replace(/\s+/g, " ").trim();
+
+  if (singleLineValue.length <= maxLength) {
+    return singleLineValue;
+  }
+
+  return `${singleLineValue.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
 function sanitizeForFence(value: string) {
   return value.replace(/```/g, "\\`\\`\\`");
 }
@@ -741,8 +751,8 @@ async function requestPullRequestDraft(
   }
 
   return {
-    commitMessage: trimText(draft.commitMessage.trim(), 120),
-    prTitle: trimText(draft.prTitle.trim(), 160),
+    commitMessage: trimSingleLine(draft.commitMessage.trim(), 120),
+    prTitle: trimSingleLine(draft.prTitle.trim(), 160),
     prDescription: trimText(draft.prDescription.trim(), 2000),
   } satisfies PullRequestDraft;
 }
