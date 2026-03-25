@@ -7,6 +7,7 @@ import {
   parseGitHubRepoUrl,
   throwGitHubRequestError,
 } from "@/lib/github";
+import { generatePullRequestDraftWithOpenRouter } from "@/lib/openrouter";
 
 const BRANCH_NAME = "readme-auto-fix";
 const COMMIT_MESSAGE = "Improve README";
@@ -29,6 +30,8 @@ type GitHubRefResponse = {
 };
 
 type GitHubReadmeResponse = {
+  content?: string;
+  encoding?: string;
   path?: string;
   sha?: string;
 };
@@ -219,12 +222,25 @@ export async function POST(request: Request) {
     }
 
     const readmeData = (await readmeResponse.json()) as GitHubReadmeResponse;
+    const originalReadme =
+      readmeData.content && readmeData.encoding === "base64"
+        ? Buffer.from(readmeData.content.replace(/\n/g, ""), "base64").toString("utf-8")
+        : "";
     const readmePath = readmeData.path;
     const readmeSha = readmeData.sha;
 
     if (!readmePath || !readmeSha) {
       throw new Error("Could not determine the README path or SHA.");
     }
+
+    const pullRequestDraft = await generatePullRequestDraftWithOpenRouter(
+      originalReadme,
+      improvedReadme,
+    ).catch(() => ({
+      commitMessage: COMMIT_MESSAGE,
+      prTitle: PR_TITLE,
+      prDescription: PR_BODY,
+    }));
 
     const updateResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${encodeGitHubPath(readmePath)}`,
@@ -235,7 +251,7 @@ export async function POST(request: Request) {
           ...buildGitHubHeaders(accessToken),
         },
         body: JSON.stringify({
-          message: COMMIT_MESSAGE,
+          message: pullRequestDraft.commitMessage,
           content: Buffer.from(improvedReadme, "utf-8").toString("base64"),
           sha: readmeSha,
           branch: BRANCH_NAME,
@@ -260,8 +276,8 @@ export async function POST(request: Request) {
           ...buildGitHubHeaders(accessToken),
         },
         body: JSON.stringify({
-          title: PR_TITLE,
-          body: PR_BODY,
+          title: pullRequestDraft.prTitle,
+          body: pullRequestDraft.prDescription,
           head: BRANCH_NAME,
           base: defaultBranch,
         }),

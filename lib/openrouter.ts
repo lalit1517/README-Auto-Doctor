@@ -45,6 +45,12 @@ type CodebaseSummary = {
   summary: string;
 };
 
+type PullRequestDraft = {
+  commitMessage: string;
+  prDescription: string;
+  prTitle: string;
+};
+
 const MAX_README_CHARS = 12000;
 const MAX_FILES = 200;
 const MAX_FILE_LIST_CHARS = 4000;
@@ -446,6 +452,48 @@ Return markdown only.`,
   ];
 }
 
+function buildPullRequestDraftMessages(
+  originalReadme: string,
+  improvedReadme: string,
+): OpenRouterMessage[] {
+  return [
+    {
+      role: "system",
+      content:
+        "You are a senior developer writing GitHub pull requests. Return strict JSON only.",
+    },
+    {
+      role: "user",
+      content: `You are a senior developer writing GitHub pull requests.
+
+Compare these two README files and generate:
+
+1. Commit message (max 1 line)
+2. PR title (professional with emoji)
+3. PR description:
+   - bullet list of improvements
+   - clear and concise
+
+Return JSON:
+{
+  "commitMessage": string,
+  "prTitle": string,
+  "prDescription": string
+}
+
+ORIGINAL:
+\`\`\`md
+${sanitizeForFence(trimText(originalReadme, MAX_README_CHARS))}
+\`\`\`
+
+IMPROVED:
+\`\`\`md
+${sanitizeForFence(trimText(improvedReadme, MAX_README_CHARS))}
+\`\`\``,
+    },
+  ];
+}
+
 async function requestOpenRouterText(
   messages: OpenRouterMessage[],
   model: string,
@@ -639,6 +687,66 @@ async function requestCodebaseSummary(
   } satisfies CodebaseSummary;
 }
 
+async function requestPullRequestDraft(
+  originalReadme: string,
+  improvedReadme: string,
+  model: string,
+  apiKey: string,
+) {
+  const content = await requestOpenRouterText(
+    buildPullRequestDraftMessages(originalReadme, improvedReadme),
+    model,
+    apiKey,
+  );
+
+  let parsedDraft: unknown;
+
+  try {
+    parsedDraft = JSON.parse(extractJsonObject(content));
+  } catch {
+    throw new OpenRouterRequestError(
+      "OpenRouter returned malformed pull request draft JSON.",
+      502,
+    );
+  }
+
+  if (
+    !parsedDraft ||
+    typeof parsedDraft !== "object" ||
+    !("commitMessage" in parsedDraft) ||
+    !("prTitle" in parsedDraft) ||
+    !("prDescription" in parsedDraft)
+  ) {
+    throw new OpenRouterRequestError(
+      "OpenRouter returned an incomplete pull request draft.",
+      502,
+    );
+  }
+
+  const draft = parsedDraft as {
+    commitMessage?: unknown;
+    prDescription?: unknown;
+    prTitle?: unknown;
+  };
+
+  if (
+    typeof draft.commitMessage !== "string" ||
+    typeof draft.prTitle !== "string" ||
+    typeof draft.prDescription !== "string"
+  ) {
+    throw new OpenRouterRequestError(
+      "OpenRouter returned an invalid pull request draft payload.",
+      502,
+    );
+  }
+
+  return {
+    commitMessage: trimText(draft.commitMessage.trim(), 120),
+    prTitle: trimText(draft.prTitle.trim(), 160),
+    prDescription: trimText(draft.prDescription.trim(), 2000),
+  } satisfies PullRequestDraft;
+}
+
 export async function generateReadmeFromRepositoryContext(
   context: RepositoryReadmeContext,
 ) {
@@ -791,6 +899,45 @@ export async function summarizeCodebaseWithOpenRouter(context: BaseRepositoryCon
     lastError ??
     new OpenRouterRequestError(
       "OpenRouter did not return a codebase summary.",
+      502,
+    )
+  );
+}
+
+export async function generatePullRequestDraftWithOpenRouter(
+  originalReadme: string,
+  improvedReadme: string,
+) {
+  const apiKey = getOpenRouterApiKey();
+
+  if (!apiKey) {
+    throw new OpenRouterRequestError("Missing OPENROUTER_API_KEY.", 500);
+  }
+
+  let lastError: OpenRouterRequestError | null = null;
+
+  for (const model of getPreferredModels()) {
+    try {
+      return await requestPullRequestDraft(
+        originalReadme,
+        improvedReadme,
+        model,
+        apiKey,
+      );
+    } catch (error) {
+      if (error instanceof OpenRouterRequestError) {
+        lastError = error;
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw (
+    lastError ??
+    new OpenRouterRequestError(
+      "OpenRouter did not return a pull request draft.",
       502,
     )
   );
