@@ -8,6 +8,10 @@
   color-scheme: dark;
 }
 
+.whitespace-fix {
+  white-space: pre-wrap;
+}
+
 body {
   min-height: 100vh;
   background:
