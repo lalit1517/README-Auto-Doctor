@@ -88,7 +88,6 @@ export async function POST(request: Request) {
       issues: evaluation.issues,
       original: context.readme,
       score: evaluation.score,
-      summary: context.architectureSummary,
       structureExplanation: context.structureExplanation,
       suggestions: evaluation.suggestions,
     });
