@@ -555,8 +555,8 @@ export function ReadmeDoctorApp() {
                 </p>
                 {issues.length > 0 ? (
                   <ul className="mt-3 space-y-2 text-sm text-slate-200">
-                    {issues.map((issue) => (
-                      <li className="flex gap-2" key={issue}>
+                    {issues.map((issue, index) => (
+                      <li className="flex gap-2" key={`${index}-${issue}`}>
                         <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-300" />
                         <span>{issue}</span>
                       </li>
@@ -575,8 +575,8 @@ export function ReadmeDoctorApp() {
                 </p>
                 {suggestions.length > 0 ? (
                   <ul className="mt-3 space-y-2 text-sm text-slate-200">
-                    {suggestions.map((suggestion) => (
-                      <li className="flex gap-2" key={suggestion}>
+                    {suggestions.map((suggestion, index) => (
+                      <li className="flex gap-2" key={`${index}-${suggestion}`}>
                         <span className="mt-1 h-1.5 w-1.5 rounded-full bg-mint" />
                         <span>{suggestion}</span>
                       </li>
