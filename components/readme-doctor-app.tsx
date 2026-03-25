@@ -6,8 +6,11 @@ import ReactDiffViewer from "react-diff-viewer-continued";
 import ReactMarkdown from "react-markdown";
 
 type AnalyzeResponse = {
+  issues?: string[];
   original?: string | null;
   improved?: string;
+  score?: number;
+  suggestions?: string[];
   error?: string;
 };
 
@@ -98,6 +101,9 @@ export function ReadmeDoctorApp() {
   const [error, setError] = useState("");
   const [prError, setPrError] = useState("");
   const [prUrl, setPrUrl] = useState("");
+  const [issues, setIssues] = useState<string[]>([]);
+  const [score, setScore] = useState<number | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("preview");
 
@@ -143,6 +149,9 @@ export function ReadmeDoctorApp() {
     setError("");
     setPrError("");
     setPrUrl("");
+    setIssues([]);
+    setScore(null);
+    setSuggestions([]);
 
     try {
       const response = await fetch("/api/analyze", {
@@ -166,6 +175,9 @@ export function ReadmeDoctorApp() {
 
       setOriginalReadme(data.original ?? "# Original README unavailable");
       setImprovedReadme(data.improved ?? "# Improved README unavailable");
+      setScore(typeof data.score === "number" ? data.score : null);
+      setIssues(Array.isArray(data.issues) ? data.issues : []);
+      setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
       pushToast({
         kind: "success",
         message: "README analysis complete. Your improved version is ready.",
@@ -422,6 +434,9 @@ export function ReadmeDoctorApp() {
                 setError("");
                 setPrError("");
                 setPrUrl("");
+                setIssues([]);
+                setScore(null);
+                setSuggestions([]);
               }}
               placeholder="https://github.com/owner/repository"
               type="url"
@@ -520,6 +535,60 @@ export function ReadmeDoctorApp() {
                 Open PR
               </a>
             </p>
+          ) : null}
+
+          {score !== null ? (
+            <div className="mt-6 grid gap-4 lg:grid-cols-[auto,1fr,1fr]">
+              <section className="rounded-[24px] border border-sky-300/20 bg-sky-300/10 px-5 py-4">
+                <p className="text-xs font-medium uppercase tracking-[0.24em] text-sky-100/80">
+                  README Score
+                </p>
+                <p className="mt-3 text-4xl font-semibold text-white">
+                  {score}
+                  <span className="ml-1 text-lg text-slate-300">/100</span>
+                </p>
+              </section>
+
+              <section className="rounded-[24px] border border-white/10 bg-slate-950/50 px-5 py-4">
+                <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-300">
+                  Issues
+                </p>
+                {issues.length > 0 ? (
+                  <ul className="mt-3 space-y-2 text-sm text-slate-200">
+                    {issues.map((issue, index) => (
+                      <li className="flex gap-2" key={`${index}-${issue}`}>
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-300" />
+                        <span>{issue}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-400">
+                    No major README issues were reported.
+                  </p>
+                )}
+              </section>
+
+              <section className="rounded-[24px] border border-white/10 bg-slate-950/50 px-5 py-4">
+                <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-300">
+                  Suggestions
+                </p>
+                {suggestions.length > 0 ? (
+                  <ul className="mt-3 space-y-2 text-sm text-slate-200">
+                    {suggestions.map((suggestion, index) => (
+                      <li className="flex gap-2" key={`${index}-${suggestion}`}>
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-mint" />
+                        <span>{suggestion}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-400">
+                    No additional README suggestions were returned.
+                  </p>
+                )}
+              </section>
+            </div>
           ) : null}
 
           <div className="mt-8 rounded-[28px] border border-white/10 bg-slate-950/60 p-4 sm:p-6">
