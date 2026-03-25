@@ -3,7 +3,9 @@
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import ReactDiffViewer from "react-diff-viewer-continued";
+import rehypeHighlight from "rehype-highlight";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type AnalyzeResponse = {
   issues?: string[];
@@ -34,6 +36,11 @@ type Toast = {
 };
 
 type ViewMode = "preview" | "diff";
+
+const markdownRemarkPlugins = [remarkGfm];
+const markdownRehypePlugins = [rehypeHighlight];
+const markdownPreviewClassName =
+  "prose prose-invert prose-slate max-w-none overflow-x-auto p-6 prose-headings:text-white prose-p:text-slate-200 prose-strong:text-white prose-a:text-mint prose-code:text-sky-200 prose-pre:overflow-x-auto prose-pre:border prose-pre:border-white/10 prose-pre:bg-slate-950/80 prose-blockquote:text-slate-300 prose-ul:list-disc prose-ol:list-decimal prose-li:marker:text-slate-400 prose-table:block prose-table:w-full prose-table:overflow-x-auto prose-table:border-collapse prose-th:border prose-th:border-white/10 prose-th:bg-white/5 prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-white/10 prose-td:px-3 prose-td:py-2";
 
 const emptyOriginalMarkdown = `# Original README
 
@@ -779,8 +786,15 @@ export function ReadmeDoctorApp() {
                       Original README
                     </p>
                   </div>
-                  <article className="prose prose-invert prose-slate max-w-none overflow-x-auto p-6 prose-headings:text-white prose-p:text-slate-200 prose-strong:text-white prose-a:text-mint prose-code:text-sky-200 prose-pre:border prose-pre:border-white/10 prose-pre:bg-slate-950/80 prose-blockquote:border-sky-400/40 prose-blockquote:text-slate-300">
-                    <ReactMarkdown>{originalReadme}</ReactMarkdown>
+                  <article
+                    className={`${markdownPreviewClassName} prose-blockquote:border-sky-400/40`}
+                  >
+                    <ReactMarkdown
+                      remarkPlugins={markdownRemarkPlugins}
+                      rehypePlugins={markdownRehypePlugins}
+                    >
+                      {originalReadme}
+                    </ReactMarkdown>
                   </article>
                 </section>
 
@@ -798,8 +812,15 @@ export function ReadmeDoctorApp() {
                       {isCopying ? "Copying..." : "Copy"}
                     </button>
                   </div>
-                  <article className="prose prose-invert prose-slate max-w-none overflow-x-auto p-6 prose-headings:text-white prose-p:text-slate-100 prose-strong:text-white prose-a:text-mint prose-code:text-sky-200 prose-pre:border prose-pre:border-white/10 prose-pre:bg-slate-950/80 prose-blockquote:border-mint/40 prose-blockquote:text-slate-300">
-                    <ReactMarkdown>{improvedReadme}</ReactMarkdown>
+                  <article
+                    className={`${markdownPreviewClassName} prose-p:text-slate-100 prose-blockquote:border-mint/40`}
+                  >
+                    <ReactMarkdown
+                      remarkPlugins={markdownRemarkPlugins}
+                      rehypePlugins={markdownRehypePlugins}
+                    >
+                      {improvedReadme}
+                    </ReactMarkdown>
                   </article>
                 </section>
               </div>
