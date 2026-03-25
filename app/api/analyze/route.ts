@@ -6,6 +6,7 @@ import {
   evaluateReadmeWithOpenRouter,
   explainFolderStructureWithOpenRouter,
   generateReadmeFromRepositoryContext,
+  summarizeCodebaseWithOpenRouter,
 } from "@/lib/openrouter";
 import {
   BaseRepositoryContext,
@@ -53,13 +54,21 @@ export async function POST(request: Request) {
   try {
     const accessToken = await getGitHubToken();
     const baseContext = await buildBaseRepositoryContext(owner, repo, accessToken);
-    const structureExplanation =
+    const [folderResult, summaryResult] = await Promise.all([
       baseContext.files.length > 0
-        ? (await explainFolderStructureWithOpenRouter(baseContext.files)).structureExplanation
-        : "- No root-level folders or files were detected.";
-    const context: BaseRepositoryContext & { structureExplanation: string } = {
+        ? explainFolderStructureWithOpenRouter(baseContext.files)
+        : Promise.resolve({
+            structureExplanation: "- No root-level folders or files were detected.",
+          }),
+      summarizeCodebaseWithOpenRouter(baseContext),
+    ]);
+    const context: BaseRepositoryContext & {
+      architectureSummary: string;
+      structureExplanation: string;
+    } = {
       ...baseContext,
-      structureExplanation,
+      architectureSummary: summaryResult.summary,
+      structureExplanation: folderResult.structureExplanation,
     };
     const [improved, evaluation] = await Promise.all([
       generateReadmeFromRepositoryContext(context),
@@ -79,6 +88,7 @@ export async function POST(request: Request) {
       issues: evaluation.issues,
       original: context.readme,
       score: evaluation.score,
+      summary: context.architectureSummary,
       structureExplanation: context.structureExplanation,
       suggestions: evaluation.suggestions,
     });

@@ -5,6 +5,7 @@ const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-chat";
 const FALLBACK_OPENROUTER_MODEL = "deepseek/deepseek-r1:free";
 
 type RepositoryReadmeContext = BaseRepositoryContext & {
+  architectureSummary: string;
   structureExplanation: string;
 };
 
@@ -38,6 +39,10 @@ type FolderStructureExplanation = {
 
 type ProjectExplanation = {
   explanation: string;
+};
+
+type CodebaseSummary = {
+  summary: string;
 };
 
 const MAX_README_CHARS = 12000;
@@ -182,6 +187,11 @@ function buildSanitizedContext(context: RepositoryReadmeContext) {
       "md",
       trimText(context.structureExplanation, 3000),
     ),
+    architectureSummary: formatArtifactBlock(
+      "ARCHITECTURE_OVERVIEW",
+      "md",
+      trimText(context.architectureSummary, 3000),
+    ),
   };
 }
 
@@ -218,6 +228,7 @@ Output should include these sections when supported by repository evidence:
 - Description
 - Features
 - Tech Stack
+- Architecture Overview
 - Installation (code block)
 - Usage (code block)
 - Scripts
@@ -225,6 +236,8 @@ Output should include these sections when supported by repository evidence:
 
 If a section cannot be derived from the sanitized context, do not include that particular section.
 Do not guess commands, scripts, or tools.
+When including Architecture Overview, prefer the provided concise technical summary and place it under:
+## 🧠 Architecture Overview
 When including Folder Structure, prefer the provided concise folder explanation and place it under:
 ## 📂 Folder Structure
 
@@ -247,6 +260,8 @@ ${sanitizedContext.files}
 ${sanitizedContext.packageJson}
 
 ${sanitizedContext.requirements}
+
+${sanitizedContext.architectureSummary}
 
 ${sanitizedContext.structureExplanation}`,
     },
@@ -377,6 +392,56 @@ ${sanitizedContext.files}
 ${sanitizedContext.packageJson}
 
 ${sanitizedContext.requirements}`,
+    },
+  ];
+}
+
+function buildCodebaseSummaryMessages(context: BaseRepositoryContext): OpenRouterMessage[] {
+  const trimmedReadme = trimText(
+    context.readme || "(No existing README found)",
+    MAX_README_CHARS,
+  );
+  const trimmedFiles = trimText(
+    context.files.slice(0, MAX_FILES).join("\n") || "(No root-level files found)",
+    MAX_FILE_LIST_CHARS,
+  );
+  const trimmedPackageJson = trimText(
+    JSON.stringify(pickRelevantPackageJsonFields(context.packageJson), null, 2) ?? "null",
+    MAX_PACKAGE_JSON_CHARS,
+  );
+
+  return [
+    {
+      role: "system",
+      content:
+        "You generate concise, developer-focused technical summaries in clear markdown.",
+    },
+    {
+      role: "user",
+      content: `Generate a technical summary of this codebase:
+
+- architecture overview
+- main components
+- how parts interact
+
+Keep it concise and developer-focused.
+
+README:
+\`\`\`md
+${sanitizeForFence(trimmedReadme)}
+\`\`\`
+
+FILES:
+\`\`\`text
+${sanitizeForFence(trimmedFiles)}
+\`\`\`
+
+PACKAGE.JSON:
+\`\`\`json
+${sanitizeForFence(trimmedPackageJson)}
+\`\`\`
+
+Return markdown only.`,
     },
   ];
 }
@@ -551,6 +616,29 @@ async function requestProjectExplanation(
   } satisfies ProjectExplanation;
 }
 
+async function requestCodebaseSummary(
+  context: BaseRepositoryContext,
+  model: string,
+  apiKey: string,
+) {
+  const summary = await requestOpenRouterText(
+    buildCodebaseSummaryMessages(context),
+    model,
+    apiKey,
+  );
+
+  if (!summary) {
+    throw new OpenRouterRequestError(
+      "OpenRouter returned an empty codebase summary.",
+      502,
+    );
+  }
+
+  return {
+    summary: trimText(summary, 1800),
+  } satisfies CodebaseSummary;
+}
+
 export async function generateReadmeFromRepositoryContext(
   context: RepositoryReadmeContext,
 ) {
@@ -672,6 +760,37 @@ export async function explainProjectWithOpenRouter(context: BaseRepositoryContex
     lastError ??
     new OpenRouterRequestError(
       "OpenRouter did not return a project explanation.",
+      502,
+    )
+  );
+}
+
+export async function summarizeCodebaseWithOpenRouter(context: BaseRepositoryContext) {
+  const apiKey = getOpenRouterApiKey();
+
+  if (!apiKey) {
+    throw new OpenRouterRequestError("Missing OPENROUTER_API_KEY.", 500);
+  }
+
+  let lastError: OpenRouterRequestError | null = null;
+
+  for (const model of getPreferredModels()) {
+    try {
+      return await requestCodebaseSummary(context, model, apiKey);
+    } catch (error) {
+      if (error instanceof OpenRouterRequestError) {
+        lastError = error;
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw (
+    lastError ??
+    new OpenRouterRequestError(
+      "OpenRouter did not return a codebase summary.",
       502,
     )
   );
