@@ -10,6 +10,7 @@ type AnalyzeResponse = {
   original?: string | null;
   improved?: string;
   score?: number;
+  summary?: string;
   structureExplanation?: string;
   suggestions?: string[];
   error?: string;
@@ -110,6 +111,7 @@ export function ReadmeDoctorApp() {
   const [projectExplanation, setProjectExplanation] = useState("");
   const [prError, setPrError] = useState("");
   const [prUrl, setPrUrl] = useState("");
+  const [summary, setSummary] = useState("");
   const [issues, setIssues] = useState<string[]>([]);
   const [score, setScore] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -167,6 +169,7 @@ export function ReadmeDoctorApp() {
     setIsExplanationOpen(false);
     setPrError("");
     setPrUrl("");
+    setSummary("");
     setIssues([]);
     setScore(null);
     setSuggestions([]);
@@ -193,6 +196,7 @@ export function ReadmeDoctorApp() {
 
       setOriginalReadme(data.original ?? "# Original README unavailable");
       setImprovedReadme(data.improved ?? "# Improved README unavailable");
+      setSummary(data.summary ?? "");
       setScore(typeof data.score === "number" ? data.score : null);
       setIssues(Array.isArray(data.issues) ? data.issues : []);
       setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
@@ -509,6 +513,7 @@ export function ReadmeDoctorApp() {
                 setError("");
                 setPrError("");
                 setPrUrl("");
+                setSummary("");
                 setIssues([]);
                 setScore(null);
                 setSuggestions([]);
@@ -679,6 +684,17 @@ export function ReadmeDoctorApp() {
                 )}
               </section>
             </div>
+          ) : null}
+
+          {summary ? (
+            <section className="mt-6 rounded-[24px] border border-white/10 bg-slate-950/50 px-5 py-4">
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-300">
+                Architecture Overview
+              </p>
+              <article className="prose prose-invert prose-slate mt-3 max-w-none prose-headings:text-white prose-p:text-slate-200 prose-strong:text-white prose-a:text-mint prose-code:text-sky-200 prose-pre:border prose-pre:border-white/10 prose-pre:bg-slate-950/80 prose-blockquote:border-sky-400/40 prose-blockquote:text-slate-300">
+                <ReactMarkdown>{summary}</ReactMarkdown>
+              </article>
+            </section>
           ) : null}
 
           <div className="mt-8 rounded-[28px] border border-white/10 bg-slate-950/60 p-4 sm:p-6">
