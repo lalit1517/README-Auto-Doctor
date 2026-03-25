@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import ReactDiffViewer from "react-diff-viewer-continued";
 import ReactMarkdown from "react-markdown";
@@ -97,6 +97,10 @@ function getApiErrorMessage(status: number, fallback: string) {
 }
 
 export function ReadmeDoctorApp() {
+  const explanationDialogTitleId = useId();
+  const closeExplanationButtonRef = useRef<HTMLButtonElement | null>(null);
+  const explanationDialogRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusedElementRef = useRef<HTMLElement | null>(null);
   const { data: session, status } = useSession();
   const [repoUrl, setRepoUrl] = useState("");
   const [originalReadme, setOriginalReadme] = useState(emptyOriginalMarkdown);
@@ -120,7 +124,11 @@ export function ReadmeDoctorApp() {
   const hasImprovedReadme = improvedReadme !== emptyImprovedMarkdown;
   const hasReadmeComparison =
     originalReadme !== emptyOriginalMarkdown && hasImprovedReadme;
-  const canAnalyze = Boolean(repoUrl.trim()) && !isLoading && !isCreatingPr;
+  const canAnalyze =
+    Boolean(repoUrl.trim()) &&
+    !isLoading &&
+    !isCreatingPr &&
+    !isExplainingProject;
   const canCreatePr =
     Boolean(repoUrl.trim()) &&
     hasImprovedReadme &&
@@ -152,6 +160,10 @@ export function ReadmeDoctorApp() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (isExplainingProject) {
+      return;
+    }
 
     if (!repoUrl.trim()) {
       const message = "Enter a GitHub repository URL first.";
@@ -379,6 +391,64 @@ export function ReadmeDoctorApp() {
         ? "Sign in with GitHub to create a pull request once the README looks right."
         : "Preview shows both versions side by side. Diff highlights the exact edits.";
 
+  useEffect(() => {
+    if (!isExplanationOpen) {
+      return;
+    }
+
+    previousFocusedElementRef.current = document.activeElement as HTMLElement | null;
+    closeExplanationButtonRef.current?.focus();
+
+    function handleDialogKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsExplanationOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const dialogElement = explanationDialogRef.current;
+
+      if (!dialogElement) {
+        return;
+      }
+
+      const focusableElements = Array.from(
+        dialogElement.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute("disabled"));
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        dialogElement.focus();
+        return;
+      }
+
+      const firstFocusableElement = focusableElements[0];
+      const lastFocusableElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement as HTMLElement | null;
+
+      if (event.shiftKey && activeElement === firstFocusableElement) {
+        event.preventDefault();
+        lastFocusableElement.focus();
+      } else if (!event.shiftKey && activeElement === lastFocusableElement) {
+        event.preventDefault();
+        firstFocusableElement.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleDialogKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleDialogKeyDown);
+      previousFocusedElementRef.current?.focus();
+    };
+  }, [isExplanationOpen]);
+
   return (
     <main className="relative isolate overflow-hidden">
       <div className="absolute inset-0 -z-10 bg-grid bg-[size:72px_72px] opacity-10" />
@@ -503,7 +573,7 @@ export function ReadmeDoctorApp() {
             <input
               aria-label="GitHub repository URL"
               className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-mint/70 focus:ring-2 focus:ring-mint/30 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isLoading || isCreatingPr}
+              disabled={isLoading || isCreatingPr || isExplainingProject}
               onChange={(event) => {
                 setRepoUrl(event.target.value);
                 setError("");
@@ -795,19 +865,30 @@ export function ReadmeDoctorApp() {
 
       {isExplanationOpen ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 px-6 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-[#081322] p-6 shadow-2xl sm:p-8">
+          <div
+            aria-labelledby={explanationDialogTitleId}
+            aria-modal="true"
+            className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-[#081322] p-6 shadow-2xl sm:p-8"
+            ref={explanationDialogRef}
+            role="dialog"
+            tabIndex={-1}
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-medium uppercase tracking-[0.24em] text-sky-200/80">
                   Project Summary
                 </p>
-                <h2 className="mt-3 text-2xl font-semibold text-white">
+                <h2
+                  className="mt-3 text-2xl font-semibold text-white"
+                  id={explanationDialogTitleId}
+                >
                   Explain Project
                 </h2>
               </div>
 
               <button
                 className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+                ref={closeExplanationButtonRef}
                 onClick={() => setIsExplanationOpen(false)}
                 type="button"
               >

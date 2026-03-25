@@ -10,14 +10,9 @@ import {
   PackageJsonParseError,
   buildBaseRepositoryContext,
 } from "@/lib/repository-context";
-import type { BaseRepositoryContext } from "@/lib/repository-context";
 
 type ExplainPayload = {
-  files?: string[];
-  packageJson?: Record<string, unknown> | null;
-  readme?: string | null;
   repoUrl?: string;
-  requirementsTxt?: string | null;
 };
 
 async function resolveContext(body: ExplainPayload) {
@@ -30,20 +25,6 @@ async function resolveContext(body: ExplainPayload) {
 
     const accessToken = await getGitHubToken();
     return buildBaseRepositoryContext(parsedRepo.owner, parsedRepo.repo, accessToken);
-  }
-
-  if (Array.isArray(body.files)) {
-    return {
-      detection: {
-        framework: "Unclear",
-        techStack: [],
-        confidence: "low" as const,
-      },
-      files: body.files,
-      packageJson: body.packageJson ?? null,
-      readme: body.readme ?? null,
-      requirementsTxt: body.requirementsTxt ?? null,
-    } satisfies BaseRepositoryContext;
   }
 
   throw new Error("A GitHub repository URL is required.");
