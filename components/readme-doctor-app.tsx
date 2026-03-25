@@ -20,6 +20,11 @@ type CreatePrResponse = {
   error?: string;
 };
 
+type ExplainResponse = {
+  error?: string;
+  explanation?: string;
+};
+
 type Toast = {
   actionHref?: string;
   actionLabel?: string;
@@ -99,7 +104,10 @@ export function ReadmeDoctorApp() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [isExplainingProject, setIsExplainingProject] = useState(false);
   const [error, setError] = useState("");
+  const [explanationError, setExplanationError] = useState("");
+  const [projectExplanation, setProjectExplanation] = useState("");
   const [prError, setPrError] = useState("");
   const [prUrl, setPrUrl] = useState("");
   const [issues, setIssues] = useState<string[]>([]);
@@ -107,6 +115,7 @@ export function ReadmeDoctorApp() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("preview");
+  const [isExplanationOpen, setIsExplanationOpen] = useState(false);
 
   const hasImprovedReadme = improvedReadme !== emptyImprovedMarkdown;
   const hasReadmeComparison =
@@ -119,6 +128,11 @@ export function ReadmeDoctorApp() {
     !isCreatingPr &&
     status === "authenticated";
   const canCopyReadme = hasImprovedReadme && !isLoading && !isCreatingPr && !isCopying;
+  const canExplainProject =
+    Boolean(repoUrl.trim()) &&
+    !isLoading &&
+    !isCreatingPr &&
+    !isExplainingProject;
 
   function dismissToast(id: number) {
     setToasts((currentToasts) =>
@@ -148,6 +162,9 @@ export function ReadmeDoctorApp() {
 
     setIsLoading(true);
     setError("");
+    setExplanationError("");
+    setProjectExplanation("");
+    setIsExplanationOpen(false);
     setPrError("");
     setPrUrl("");
     setIssues([]);
@@ -262,6 +279,61 @@ export function ReadmeDoctorApp() {
     }
   }
 
+  async function handleExplainProject() {
+    if (!repoUrl.trim()) {
+      const message = "Enter a GitHub repository URL first.";
+      setExplanationError(message);
+      pushToast({ kind: "error", message });
+      return;
+    }
+
+    setIsExplainingProject(true);
+    setExplanationError("");
+    setProjectExplanation("");
+
+    try {
+      const response = await fetch("/api/explain", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ repoUrl }),
+      });
+
+      const data = (await response.json()) as ExplainResponse;
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(
+            response.status,
+            data.error ?? "We could not explain that project.",
+          ),
+        );
+      }
+
+      if (!data.explanation) {
+        throw new Error("The project explanation was empty.");
+      }
+
+      setProjectExplanation(data.explanation);
+      setIsExplanationOpen(true);
+      pushToast({
+        kind: "success",
+        message: "Project explanation is ready.",
+      });
+    } catch (explainError) {
+      const message =
+        explainError instanceof Error
+          ? explainError.message
+          : "Something went wrong while explaining the project.";
+
+      setExplanationError(message);
+      pushToast({ kind: "error", message });
+    } finally {
+      setIsExplainingProject(false);
+    }
+  }
+
   async function handleCopyReadme() {
     if (!hasImprovedReadme) {
       pushToast({
@@ -299,6 +371,8 @@ export function ReadmeDoctorApp() {
 
   const activityMessage = isLoading
     ? "Fetching the original README and drafting a stronger rewrite..."
+    : isExplainingProject
+      ? "Reviewing the repository and preparing a beginner-friendly project explanation..."
     : isCreatingPr
       ? "Creating a GitHub branch, committing the README update, and opening a pull request..."
       : status !== "authenticated"
@@ -489,6 +563,15 @@ export function ReadmeDoctorApp() {
 
             <div className="flex flex-wrap items-center justify-end gap-3">
               <button
+                className="inline-flex min-w-40 items-center justify-center rounded-2xl border border-sky-300/20 bg-sky-300/10 px-5 py-3 text-sm font-semibold text-sky-100 transition hover:bg-sky-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!canExplainProject}
+                onClick={() => void handleExplainProject()}
+                type="button"
+              >
+                {isExplainingProject ? "Explaining..." : "Explain Project"}
+              </button>
+
+              <button
                 className="inline-flex min-w-40 items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={!canCopyReadme}
                 onClick={() => void handleCopyReadme()}
@@ -515,6 +598,12 @@ export function ReadmeDoctorApp() {
           {error ? (
             <p className="mt-6 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
               {error}
+            </p>
+          ) : null}
+
+          {explanationError ? (
+            <p className="mt-6 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+              {explanationError}
             </p>
           ) : null}
 
@@ -703,6 +792,37 @@ export function ReadmeDoctorApp() {
           ) : null}
         </div>
       </section>
+
+      {isExplanationOpen ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 px-6 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-[#081322] p-6 shadow-2xl sm:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium uppercase tracking-[0.24em] text-sky-200/80">
+                  Project Summary
+                </p>
+                <h2 className="mt-3 text-2xl font-semibold text-white">
+                  Explain Project
+                </h2>
+              </div>
+
+              <button
+                className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+                onClick={() => setIsExplanationOpen(false)}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 rounded-[24px] border border-white/10 bg-slate-950/50 p-5">
+              <p className="whitespace-pre-line text-sm leading-7 text-slate-200">
+                {projectExplanation}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
