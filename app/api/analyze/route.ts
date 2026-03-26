@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { getGitHubToken } from "@/lib/auth";
 import { GitHubRequestError, parseGitHubRepoUrl } from "@/lib/github";
 import {
-  OpenRouterRequestError,
-  evaluateReadmeWithOpenRouter,
-  explainFolderStructureWithOpenRouter,
+  AIRequestError,
+  evaluateReadme,
+  explainFolderStructure,
   generateReadmeFromRepositoryContext,
-  summarizeCodebaseWithOpenRouter,
-} from "@/lib/openrouter";
+  summarizeCodebase,
+} from "@/lib/ai";
 import {
   BaseRepositoryContext,
   GitHubDecodeError,
@@ -56,11 +56,11 @@ export async function POST(request: Request) {
     const baseContext = await buildBaseRepositoryContext(owner, repo, accessToken);
     const [folderResult, summaryResult] = await Promise.all([
       baseContext.files.length > 0
-        ? explainFolderStructureWithOpenRouter(baseContext.files)
+        ? explainFolderStructure(baseContext.files)
         : Promise.resolve({
             structureExplanation: "- No root-level folders or files were detected.",
           }),
-      summarizeCodebaseWithOpenRouter(baseContext),
+      summarizeCodebase(baseContext),
     ]);
     const context: BaseRepositoryContext & {
       architectureSummary: string;
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     const [improved, evaluation] = await Promise.all([
       generateReadmeFromRepositoryContext(context),
       context.readme
-        ? evaluateReadmeWithOpenRouter(context.readme)
+        ? evaluateReadme(context.readme)
         : Promise.resolve({
             score: 0,
             issues: ["No existing README found."],
@@ -93,11 +93,14 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (
-      error instanceof OpenRouterRequestError &&
-      error.message === "Missing OPENROUTER_API_KEY."
+      error instanceof AIRequestError &&
+      error.message.includes("No AI provider API keys are configured")
     ) {
       return NextResponse.json(
-        { error: "OPENROUTER_API_KEY is missing. Add it to your .env.local file." },
+        {
+          error:
+            "No AI provider API keys are configured. Add GEMINI_API_KEY, OPENROUTER_API_KEY, and GROQ_API_KEY to your .env.local file.",
+        },
         { status: 500 },
       );
     }
@@ -109,9 +112,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (error instanceof OpenRouterRequestError) {
+    if (error instanceof AIRequestError) {
       return NextResponse.json(
-        { error: error.message || "OpenRouter could not generate the README." },
+        { error: error.message || "The AI providers could not generate the README." },
         { status: error.status || 502 },
       );
     }
