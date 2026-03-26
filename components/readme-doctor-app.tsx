@@ -11,7 +11,6 @@ import { useReadmeGenerator } from "@/hooks";
 export function ReadmeDoctorApp() {
   const { data: session, status } = useSession();
   const {
-    activityMessage,
     canAnalyze,
     canCopyReadme,
     canCreatePr,
@@ -40,13 +39,29 @@ export function ReadmeDoctorApp() {
   const isBusy = isLoading || isCreatingPr;
 
   return (
-    <main className="relative isolate overflow-hidden">
-      <div className="absolute inset-0 -z-10 bg-grid bg-[size:72px_72px] opacity-10" />
+    <main className="relative isolate min-h-screen bg-[#07070E] overflow-hidden">
+      {/* Ambient background orbs */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-48 -left-48 h-[700px] w-[700px] rounded-full opacity-[0.06] blur-[140px]"
+        style={{ background: "radial-gradient(circle, #7C6FE0, transparent 70%)" }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-48 -right-48 h-[600px] w-[600px] rounded-full opacity-[0.05] blur-[140px]"
+        style={{ background: "radial-gradient(circle, #2ECAD9, transparent 70%)" }}
+      />
+
+      {/* Grid */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-grid bg-[size:48px_48px] opacity-100"
+      />
 
       <ToastRegion onDismiss={dismissToast} toasts={toasts} />
 
-      <section className="mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-6 py-16 sm:px-10">
-        <div className="w-full max-w-7xl rounded-[32px] border border-white/10 bg-white/8 p-6 shadow-glow backdrop-blur-xl sm:p-10">
+      <section className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-10 sm:px-10">
+        <div className="w-full rounded-3xl border border-[#1E1E35] bg-[#0E0E1A]/80 p-6 shadow-[0_0_80px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.03)_inset] backdrop-blur-xl sm:p-10">
           <Header isBusy={isBusy} session={session} status={status} />
 
           <InputForm
@@ -59,7 +74,6 @@ export function ReadmeDoctorApp() {
           />
 
           <ResultDisplay
-            activityMessage={activityMessage}
             canCopyReadme={canCopyReadme}
             canCreatePr={canCreatePr}
             error={error}

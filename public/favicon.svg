@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <!-- Brand gradient: purple → blue (matches Header logo) -->
+    <linearGradient id="bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7C6FE0"/>
+      <stop offset="100%" stop-color="#4F8EF7"/>
+    </linearGradient>
+    <!-- Subtle inner top-edge highlight for depth -->
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Glow filter on the teal dot -->
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="1.2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
+
+  <!-- Inner top highlight for glass-like depth -->
+  <rect width="32" height="14" rx="7" fill="url(#shine)"/>
+
+  <!-- README document lines (full / medium / short) -->
+  <path d="M6.5 10.5h19"   stroke="white" stroke-width="2.2" stroke-linecap="round" opacity="0.95"/>
+  <path d="M6.5 16h13"     stroke="white" stroke-width="2.2" stroke-linecap="round" opacity="0.95"/>
+  <path d="M6.5 21.5h8.5"  stroke="white" stroke-width="2.2" stroke-linecap="round" opacity="0.95"/>
+
+  <!-- Teal doctor / health-check dot (matches #2ECAD9 brand accent) -->
+  <circle cx="25.5" cy="21.5" r="4.5" fill="#2ECAD9" filter="url(#glow)"/>
+  <!-- Specular highlight on dot for shine -->
+  <circle cx="24.3" cy="20.3" r="1.6" fill="white" fill-opacity="0.28"/>
+</svg>

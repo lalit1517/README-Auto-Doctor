@@ -11,38 +11,88 @@ export const ToastRegion = memo(function ToastRegion({
   toasts,
 }: ToastRegionProps) {
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-[min(100%-2rem,24rem)] flex-col gap-3">
+    <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-[min(100%-2rem,24rem)] flex-col gap-2.5">
       {toasts.map((toast) => (
         <div
-          className={`pointer-events-auto rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-xl ${
+          className={`pointer-events-auto overflow-hidden rounded-2xl border shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl ${
             toast.kind === "success"
-              ? "border-mint/30 bg-slate-950/90 text-mint"
-              : "border-red-400/30 bg-slate-950/90 text-red-200"
+              ? "border-[#7C6FE0]/30 bg-[#0E0E1A]/95"
+              : "border-red-500/30 bg-[#0E0E1A]/95"
           }`}
           key={toast.id}
         >
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">{toast.message}</p>
-              {toast.actionHref ? (
-                <a
-                  className="inline-flex text-sm font-semibold underline underline-offset-4 hover:text-white"
-                  href={toast.actionHref}
-                  rel="noreferrer"
-                  target="_blank"
+          {/* Gradient top accent line */}
+          <div
+            className="h-0.5 w-full"
+            style={{
+              background:
+                toast.kind === "success"
+                  ? "linear-gradient(90deg, #7C6FE0, #4F8EF7, #2ECAD9)"
+                  : "linear-gradient(90deg, #EF4444, #F97316)",
+            }}
+          />
+          <div className="flex items-start justify-between gap-4 px-4 py-3.5">
+            <div className="flex items-start gap-3">
+              <div
+                className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full ${
+                  toast.kind === "success"
+                    ? "bg-[#7C6FE0]/15"
+                    : "bg-red-500/15"
+                }`}
+              >
+                {toast.kind === "success" ? (
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path
+                      d="M2 5l2.5 2.5L8 3"
+                      stroke="#7C6FE0"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : (
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M5 3v2.5M5 7h.01" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <p
+                  className={`text-sm font-medium ${
+                    toast.kind === "success" ? "text-[#F2F2FF]" : "text-red-200"
+                  }`}
                 >
-                  {toast.actionLabel ?? "Open"}
-                </a>
-              ) : null}
+                  {toast.message}
+                </p>
+                {toast.actionHref ? (
+                  <a
+                    className={`inline-flex text-xs font-semibold underline underline-offset-4 transition hover:opacity-80 ${
+                      toast.kind === "success" ? "text-[#7C6FE0]" : "text-red-400"
+                    }`}
+                    href={toast.actionHref}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {toast.actionLabel ?? "Open"}
+                  </a>
+                ) : null}
+              </div>
             </div>
 
             <button
               aria-label="Dismiss notification"
-              className="text-sm text-slate-400 transition hover:text-white"
+              className="mt-0.5 flex-shrink-0 text-xs text-[#5C5C7B] transition hover:text-[#F2F2FF]"
               onClick={() => onDismiss(toast.id)}
               type="button"
             >
-              Close
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path
+                  d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
             </button>
           </div>
         </div>
