@@ -25,6 +25,9 @@ export const InputForm = memo(function InputForm({
       <div className="relative flex-1">
         <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center">
           <svg
+            role="presentation"
+            aria-hidden="true"
+            focusable="false"
             width="16"
             height="16"
             viewBox="0 0 24 24"
@@ -62,6 +65,9 @@ export const InputForm = memo(function InputForm({
         ) : (
           <>
             <svg
+              role="presentation"
+              aria-hidden="true"
+              focusable="false"
               width="14"
               height="14"
               viewBox="0 0 24 24"

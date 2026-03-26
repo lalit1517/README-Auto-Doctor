@@ -86,9 +86,12 @@ export default function Navbar() {
 
         {/* Mobile hamburger */}
         <button
+          type="button"
           className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg border border-[#1E1E35] bg-[#0E0E1A] text-[#9B9BB8] hover:text-[#F2F2FF] transition-colors"
           onClick={() => setMenuOpen((v) => !v)}
           aria-label="Toggle menu"
+          aria-expanded={menuOpen}
+          aria-controls="mobile-menu"
         >
           {menuOpen ? (
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -114,7 +117,7 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-[#1E1E35] bg-[#07070E]/95 backdrop-blur-xl px-6 py-4 flex flex-col gap-1">
+        <div id="mobile-menu" className="md:hidden border-t border-[#1E1E35] bg-[#07070E]/95 backdrop-blur-xl px-6 py-4 flex flex-col gap-1">
           {navLinks.map((link) => (
             <a
               key={link.href}

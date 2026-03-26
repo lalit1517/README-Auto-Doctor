@@ -30,8 +30,9 @@ const faqs = [
   },
 ];
 
-function FAQItem({ question, answer }: { question: string; answer: string }) {
+function FAQItem({ question, answer, index }: { question: string; answer: string; index: number }) {
   const [open, setOpen] = useState(false);
+  const panelId = `faq-panel-${index}`;
 
   return (
     <div className="border-b border-[#1E1E35] last:border-0">
@@ -39,6 +40,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-start justify-between gap-6 py-5 text-left transition-colors hover:text-[#F2F2FF]"
         aria-expanded={open}
+        aria-controls={panelId}
       >
         <span className="font-display text-base font-medium text-[#F2F2FF]">
           {question}
@@ -60,6 +62,9 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
       </button>
 
       <div
+        id={panelId}
+        role="region"
+        aria-hidden={!open}
         className={`overflow-hidden transition-all duration-300 ${
           open ? "max-h-48 pb-5 opacity-100" : "max-h-0 opacity-0"
         }`}
@@ -89,8 +94,8 @@ export default function FAQ() {
 
         {/* Accordion */}
         <div className="rounded-2xl border border-[#1E1E35] bg-[#0E0E1A] divide-y divide-[#1E1E35] px-6">
-          {faqs.map((faq) => (
-            <FAQItem key={faq.question} question={faq.question} answer={faq.answer} />
+          {faqs.map((faq, index) => (
+            <FAQItem key={faq.question} question={faq.question} answer={faq.answer} index={index} />
           ))}
         </div>
       </div>

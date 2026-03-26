@@ -15,7 +15,12 @@ export const Loader = memo(function Loader() {
             Fetching the repository README and rewriting it with AI.
           </p>
         </div>
-        <div className="inline-flex items-center gap-2.5 rounded-full border border-[#2A2A48] bg-[#0E0E1A] px-4 py-2 text-xs font-medium text-[#7C6FE0]">
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="inline-flex items-center gap-2.5 rounded-full border border-[#2A2A48] bg-[#0E0E1A] px-4 py-2 text-xs font-medium text-[#7C6FE0]"
+        >
           <span className="h-2 w-2 animate-pulse rounded-full bg-[#7C6FE0]" />
           In progress
         </div>
