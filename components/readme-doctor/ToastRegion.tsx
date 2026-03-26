@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { Toast } from "./types";
+import type { Toast } from "@/types/readme-doctor";
 
 type ToastRegionProps = {
   onDismiss: (id: number) => void;

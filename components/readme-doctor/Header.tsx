@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { signIn, signOut } from "next-auth/react";
-import type { HeaderSession, SessionStatus } from "./types";
+import type { HeaderSession, SessionStatus } from "@/types/readme-doctor";
 
 type HeaderProps = {
   isBusy: boolean;

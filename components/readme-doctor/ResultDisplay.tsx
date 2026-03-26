@@ -3,9 +3,9 @@ import ReactDiffViewer from "react-diff-viewer-continued";
 import rehypeHighlight from "rehype-highlight";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { ViewMode } from "@/types/readme-doctor";
 import { ErrorDisplay } from "./ErrorDisplay";
 import { Loader } from "./Loader";
-import type { ViewMode } from "./types";
 
 const markdownRemarkPlugins = [remarkGfm];
 const markdownRehypePlugins = [rehypeHighlight];

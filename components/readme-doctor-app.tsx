@@ -6,7 +6,7 @@ import { Header } from "@/components/readme-doctor/Header";
 import { InputForm } from "@/components/readme-doctor/InputForm";
 import { ResultDisplay } from "@/components/readme-doctor/ResultDisplay";
 import { ToastRegion } from "@/components/readme-doctor/ToastRegion";
-import { useReadmeGenerator } from "@/components/readme-doctor/hooks";
+import { useReadmeGenerator } from "@/hooks";
 
 export function ReadmeDoctorApp() {
   const { data: session, status } = useSession();
