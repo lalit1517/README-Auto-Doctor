@@ -1,4 +1,8 @@
-import { buildGitHubHeaders, throwGitHubRequestError } from "@/lib/github";
+import {
+  buildGitHubHeaders,
+  formatRepoTitle,
+  throwGitHubRequestError,
+} from "@/lib/github";
 import { detectProjectStack } from "@/lib/project-detection";
 
 export type GitHubContentFile = {
@@ -14,6 +18,8 @@ export type BaseRepositoryContext = {
   packageJson: Record<string, unknown> | null;
   readme: string | null;
   requirementsTxt: string | null;
+  repoName: string;
+  repoTitle: string;
 };
 
 export class GitHubDecodeError extends Error {
@@ -166,5 +172,7 @@ export async function buildBaseRepositoryContext(
     packageJson,
     readme,
     requirementsTxt,
+    repoName: repo,
+    repoTitle: formatRepoTitle(repo),
   };
 }

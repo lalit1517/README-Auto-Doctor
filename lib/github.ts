@@ -46,6 +46,29 @@ export function parseGitHubRepoUrl(repoUrl: string) {
   return { owner, repo } satisfies ParsedGitHubRepo;
 }
 
+export function formatRepoTitle(repoName: string): string {
+  // Normalize separators and trim any trailing git suffix before formatting.
+  const normalizedName = repoName
+    .replace(/\.git$/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2")
+    .trim();
+
+  const words = normalizedName
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean);
+
+  if (words.length === 0) {
+    return "Project";
+  }
+
+  return words
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
 type BuildGitHubHeadersOptions = {
   allowEnvFallback?: boolean;
 };

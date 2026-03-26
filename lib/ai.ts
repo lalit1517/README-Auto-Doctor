@@ -603,6 +603,7 @@ function buildSanitizedContext(context: RepositoryReadmeContext) {
         MAX_PACKAGE_JSON_CHARS,
       ),
     ),
+    repoTitle: formatArtifactBlock("REPOSITORY_TITLE", "text", context.repoTitle),
     readme: formatArtifactBlock(
       "README",
       "md",
@@ -627,6 +628,18 @@ function buildSanitizedContext(context: RepositoryReadmeContext) {
   };
 }
 
+function ensureReadmeTitle(markdown: string, repoTitle: string) {
+  const trimmedMarkdown = markdown.trim();
+  const heading = `# ${repoTitle}`;
+
+  // Replace the first H1 if one exists; otherwise prepend the formatted title.
+  if (/^#\s+.+/m.test(trimmedMarkdown)) {
+    return trimmedMarkdown.replace(/^#\s+.+/m, heading);
+  }
+
+  return `${heading}\n\n${trimmedMarkdown}`.trim();
+}
+
 function buildReadmePrompt(context: RepositoryReadmeContext) {
   const sanitizedContext = buildSanitizedContext(context);
 
@@ -645,22 +658,28 @@ Generate a polished GitHub README with these sections in this exact order:
 # Project Title
 ## Description
 ## Features
+## Tech Stack
+## Folder Structure
+## Architecture Overview
 ## Installation
 \`\`\`bash
 # Verified install commands only.
 \`\`\`
 ## Usage
-## Tech Stack
-## Folder Structure
-## Architecture Overview
+\`\`\`bash
+# Verified run commands only.
+\`\`\`
 
 Rules:
 - The Installation section must contain exactly one bash code block.
 - If no install command can be verified, keep the bash block and use a short comment saying no verified install command was found.
 - Keep formatting clean and concise.
 - Use bullet lists where they improve readability.
+- Use the provided repository title exactly for the H1 heading.
 - The Tech Stack section must use the deterministic stack analysis as the primary source.
 - The Folder Structure and Architecture Overview sections must stay concise.
+
+${sanitizedContext.repoTitle}
 
 ${sanitizedContext.detection}
 
@@ -856,7 +875,7 @@ export async function generateReadmeFromRepositoryContext(
     throw new AIRequestError("AI providers did not return a generated README.", 502);
   }
 
-  return improved.trim();
+  return ensureReadmeTitle(improved, context.repoTitle);
 }
 
 export async function evaluateReadme(readme: string) {
