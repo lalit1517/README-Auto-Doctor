@@ -1,34 +1,22 @@
 # readme-auto-doctor
+## Description
+A Next.js application designed for markdown processing, syntax highlighting, and diff visualization. It integrates TypeScript, Tailwind CSS, and NextAuth.js, enabling the rendering of GitHub Flavored Markdown and the visualization of differences between documents.
 
-## 📖 Description  
-A Next.js application with TypeScript, Tailwind CSS, and NextAuth.js integration. The project features markdown processing with syntax highlighting and diff visualization capabilities.
+## Features
+*   Next.js 14 with App Router
+*   TypeScript support
+*   Tailwind CSS styling
+*   NextAuth.js authentication
+*   Markdown rendering with GitHub Flavored Markdown support
+*   Syntax highlighting for code blocks
+*   Diff visualization between documents
 
-## ✨ Features  
-- Next.js 14 with App Router  
-- TypeScript support  
-- Tailwind CSS styling  
-- NextAuth.js authentication  
-- Markdown rendering with GitHub Flavored Markdown support  
-- Syntax highlighting for code blocks  
-- Diff visualization between documents  
-
-## 🛠️ Tech Stack  
-- **Framework**: Next.js 14  
-- **Frontend**: React 18  
-- **Styling**: Tailwind CSS 3, PostCSS  
-- **Authentication**: NextAuth.js 4  
-- **Markdown**: react-markdown, remark-gfm, rehype-highlight  
-- **Diff Visualization**: react-diff-viewer-continued  
-- **Language**: TypeScript 5.7  
-
-## 🚀 Installation  
-
+## Installation
 ```bash
 npm install
 ```
 
-## ⚙️ Usage  
-
+## Usage
 ```bash
 # Development
 npm run dev
@@ -43,33 +31,33 @@ npm run start
 npm run lint
 ```
 
-## 📂 Folder Structure  
+## Tech Stack
+*   **Framework**: Next.js 14
+*   **Frontend**: React 18
+*   **Runtime**: Node.js
+*   **Language**: TypeScript 5.7
+*   **Styling**: Tailwind CSS 3, PostCSS
+*   **Authentication**: NextAuth.js 4
+*   **Markdown Processing**: `react-markdown`, `remark-gfm`, `rehype-highlight`
+*   **Diff Visualization**: `react-diff-viewer-continued`
 
-- **`.env.example`**: Environment variable template  
-- **`.gitignore`**: Git exclusion rules  
-- **`app/`**: Next.js App Router directory  
-- **`components/`**: Reusable UI components  
-- **`lib/`**: Utility functions and business logic  
-- **`next-env.d.ts`**: Next.js TypeScript declarations  
-- **`next.config.mjs`**: Next.js configuration  
-- **`package-lock.json`**: Dependency tree  
-- **`package.json`**: Project metadata and dependencies  
-- **`postcss.config.js`**: PostCSS configuration  
-- **`tailwind.config.ts`**: Tailwind CSS settings  
-- **`tsconfig.json`**: TypeScript compiler configuration  
-- **`types/`**: Custom type definitions  
+## Folder Structure
+*   `.gitignore`: Specifies files and directories to be ignored by Git.
+*   `app/`: Contains the main application code following the Next.js App Router structure.
+*   `components/`: Stores reusable UI components.
+*   `lib/`: Holds utility functions and helper modules.
+*   `next-env.d.ts`: Declares types specific to the Next.js environment for TypeScript.
+*   `next.config.mjs`: Next.js configuration file.
+*   `package-lock.json`: Records the exact dependency tree.
+*   `package.json`: Defines project metadata, scripts, and dependencies.
+*   `postcss.config.js`: PostCSS configuration file.
+*   `tailwind.config.ts`: Tailwind CSS configuration file.
+*   `tsconfig.json`: TypeScript compiler configuration file.
+*   `types/`: Contains custom TypeScript type definitions.
 
-## 🧠 Architecture Overview  
-
-- **Next.js App Router** with modern `/app` directory structure  
-- **Authentication** via NextAuth.js  
-- **Markdown Processing**:  
-  - `react-markdown` for rendering  
-  - `remark-gfm` for GitHub Flavored Markdown  
-  - `rehype-highlight` for syntax highlighting  
-- **Diff Visualization** with `react-diff-viewer-continued`  
-- **Styling** via Tailwind CSS with PostCSS processing  
-- **TypeScript** for type safety throughout the application  
-- **Build System**:  
-  - Next.js handles SSR/SSG  
-  - PostCSS processes Tailwind CSS
+## Architecture Overview
+*   **Purpose**: A Next.js application for markdown processing, syntax highlighting, and diff visualization.
+*   **Core Functionality**: Renders GitHub Flavored Markdown, provides syntax highlighting, and visualizes document differences.
+*   **Authentication**: Integrates NextAuth.js.
+*   **Architecture**: Built with Next.js 14 App Router, utilizing a modern `/app` directory structure and TypeScript.
+*   **Key Technologies**: Leverages React 18, Tailwind CSS, `react-markdown`, `rehype-highlight`, and `react-diff-viewer-continued`.
