@@ -39,14 +39,6 @@ export function useReadmeState(status: SessionStatus) {
     !isCreatingPr &&
     status === "authenticated";
   const canCopyReadme = hasImprovedReadme && !isLoading && !isCreatingPr && !isCopying;
-  const activityMessage = isLoading
-    ? "Fetching the original README and drafting a stronger rewrite..."
-    : isCreatingPr
-      ? "Creating a GitHub branch, committing the README update, and opening a pull request..."
-      : status !== "authenticated"
-        ? "Sign in with GitHub to create a pull request once the README looks right."
-        : "Preview shows both versions side by side. Diff highlights the exact edits.";
-
   function clearMessages() {
     setError("");
     setPrError("");
@@ -66,7 +58,6 @@ export function useReadmeState(status: SessionStatus) {
   }
 
   return {
-    activityMessage,
     canAnalyze,
     canCopyReadme,
     canCreatePr,
