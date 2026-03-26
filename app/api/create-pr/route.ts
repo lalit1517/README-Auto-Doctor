@@ -7,7 +7,7 @@ import {
   parseGitHubRepoUrl,
   throwGitHubRequestError,
 } from "@/lib/github";
-import { generatePullRequestDraftWithOpenRouter } from "@/lib/openrouter";
+import { generatePullRequestDraft } from "@/lib/ai";
 
 const BRANCH_NAME = "readme-auto-fix";
 const COMMIT_MESSAGE = "Improve README";
@@ -233,7 +233,7 @@ export async function POST(request: Request) {
       throw new Error("Could not determine the README path or SHA.");
     }
 
-    const pullRequestDraft = await generatePullRequestDraftWithOpenRouter(
+    const pullRequestDraft = await generatePullRequestDraft(
       originalReadme,
       improvedReadme,
     ).catch(() => ({

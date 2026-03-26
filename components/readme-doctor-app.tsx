@@ -438,7 +438,7 @@ export function ReadmeDoctorApp() {
               Compare the original README against an AI-improved rewrite.
             </h1>
             <p className="mt-4 text-base leading-7 text-slate-300 sm:text-lg">
-              Fetch a repository README, improve it with OpenAI, then inspect the polished version in preview or diff mode.
+              Fetch a repository README, improve it with a multi-provider AI fallback, then inspect the polished version in preview or diff mode.
             </p>
           </div>
 
