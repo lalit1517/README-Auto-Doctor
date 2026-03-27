@@ -96,6 +96,17 @@ export function ReadmeDoctorApp() {
   const isAuthenticated = status === "authenticated";
   const canShowSidebar = isAuthenticated && selectionComplete;
   const isMobileSidebarOpen = canShowSidebar && isSidebarOpen;
+  const desktopSidebarPlaceholderMessage =
+    status === "loading"
+      ? "Repos are loading"
+      : !isAuthenticated
+        ? "Login with Github to view repos"
+        : !selectionComplete
+          ? isLoadingRepos
+            ? "Repos are loading"
+            : "Choose repositories to load"
+          : null;
+  const showDesktopSidebar = canShowSidebar || desktopSidebarPlaceholderMessage !== null;
 
   useEffect(() => {
     if (!canShowSidebar) {
@@ -294,8 +305,8 @@ export function ReadmeDoctorApp() {
         )}
 
         <section className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 py-10 sm:px-6 lg:px-10">
-          <div className={`flex w-full gap-6 ${isAuthenticated ? "items-start" : ""}`}>
-            {canShowSidebar ? (
+          <div className="flex w-full items-start gap-6">
+            {showDesktopSidebar ? (
               <div className="hidden lg:block lg:w-72 lg:flex-shrink-0 xl:w-80">
                 <div className="lg:sticky lg:top-10 lg:self-start">
                   <RepoSidebar
@@ -305,6 +316,8 @@ export function ReadmeDoctorApp() {
                     isLoading={isLoadingRepos}
                     onRefresh={() => void refreshRepos()}
                     onSelectRepo={handleSelectRepo}
+                    placeholderLoading={status === "loading" || (!selectionComplete && isLoadingRepos)}
+                    placeholderMessage={desktopSidebarPlaceholderMessage ?? undefined}
                     repos={repos}
                     selectedRepos={selectedRepos}
                   />
