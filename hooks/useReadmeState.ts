@@ -15,6 +15,7 @@ Your improved README will appear here after analysis completes.
 
 export function useReadmeState(status: SessionStatus) {
   const [repoUrl, setRepoUrl] = useState("");
+  const [analyzedRepoUrl, setAnalyzedRepoUrl] = useState("");
   const [originalReadme, setOriginalReadme] = useState(emptyOriginalMarkdown);
   const [improvedReadme, setImprovedReadme] = useState(emptyImprovedMarkdown);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +34,7 @@ export function useReadmeState(status: SessionStatus) {
     originalReadme !== emptyOriginalMarkdown && hasImprovedReadme;
   const canAnalyze = Boolean(repoUrl.trim()) && !isLoading && !isCreatingPr;
   const canCreatePr =
-    Boolean(repoUrl.trim()) &&
+    Boolean(analyzedRepoUrl.trim()) &&
     hasImprovedReadme &&
     !isLoading &&
     !isCreatingPr &&
@@ -58,6 +59,7 @@ export function useReadmeState(status: SessionStatus) {
   }
 
   return {
+    analyzedRepoUrl,
     canAnalyze,
     canCopyReadme,
     canCreatePr,
@@ -78,6 +80,7 @@ export function useReadmeState(status: SessionStatus) {
     resetAnalysisMeta,
     score,
     setError,
+    setAnalyzedRepoUrl,
     setImprovedReadme,
     setIsCopying,
     setIsCreatingPr,
@@ -88,6 +91,7 @@ export function useReadmeState(status: SessionStatus) {
     setPrUrl,
     setScore,
     setSuggestions,
+    setRepoUrl,
     setViewMode,
     suggestions,
     viewMode,

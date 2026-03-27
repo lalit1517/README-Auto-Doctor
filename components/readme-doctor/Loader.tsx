@@ -4,7 +4,7 @@ const previewLabels = ["Original README", "Improved README"] as const;
 
 export const Loader = memo(function Loader() {
   return (
-    <div className="mt-8 space-y-5">
+    <div className="space-y-5">
       {/* Status banner */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#7C6FE0]/20 bg-[#7C6FE0]/[0.06] px-5 py-4">
         <div>

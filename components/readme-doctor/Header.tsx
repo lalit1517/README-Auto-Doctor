@@ -4,13 +4,19 @@ import { signIn, signOut } from "next-auth/react";
 import type { HeaderSession, SessionStatus } from "@/types/readme-doctor";
 
 type HeaderProps = {
+  canToggleSidebar?: boolean;
   isBusy: boolean;
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
   session: HeaderSession;
   status: SessionStatus;
 };
 
 export const Header = memo(function Header({
+  canToggleSidebar = false,
   isBusy,
+  isSidebarOpen = false,
+  onToggleSidebar,
   session,
   status,
 }: HeaderProps) {
@@ -19,25 +25,61 @@ export const Header = memo(function Header({
       {/* Top nav bar */}
       <nav className="flex flex-col gap-4 border-b border-[#1E1E35] pb-6 sm:flex-row sm:items-center sm:justify-between">
         {/* Logo / back link */}
-        <Link href="/" className="group inline-flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#7C6FE0] to-[#4F8EF7] shadow-[0_0_12px_rgba(124,111,224,0.35)] transition-shadow group-hover:shadow-[0_0_20px_rgba(124,111,224,0.5)]">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M3 4h10M3 7h7M3 10h5"
-                stroke="#F2F2FF"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-              <circle cx="13" cy="10" r="2" fill="#2ECAD9" />
-            </svg>
-          </div>
-          <span className="font-display text-sm font-semibold text-[#F2F2FF]">
-            Readme Auto Doctor
-          </span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="group inline-flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#7C6FE0] to-[#4F8EF7] shadow-[0_0_12px_rgba(124,111,224,0.35)] transition-shadow group-hover:shadow-[0_0_20px_rgba(124,111,224,0.5)]">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M3 4h10M3 7h7M3 10h5"
+                  stroke="#F2F2FF"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+                <circle cx="13" cy="10" r="2" fill="#2ECAD9" />
+              </svg>
+            </div>
+            <span className="font-display text-sm font-semibold text-[#F2F2FF]">
+              Readme Auto Doctor
+            </span>
+          </Link>
+        </div>
 
         {/* Auth section */}
         <div className="flex flex-wrap items-center gap-3">
+          {canToggleSidebar && onToggleSidebar ? (
+            <button
+              aria-controls="repo-sidebar"
+              aria-expanded={isSidebarOpen}
+              aria-label={isSidebarOpen ? "Close repositories sidebar" : "Open repositories sidebar"}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E1E35] bg-[#0E0E1A] text-[#9B9BB8] transition-all hover:border-[#2A2A48] hover:text-[#F2F2FF] lg:hidden"
+              onClick={onToggleSidebar}
+              type="button"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                {isSidebarOpen ? (
+                  <>
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M3 12h18" />
+                    <path d="M3 6h18" />
+                    <path d="M3 18h18" />
+                  </>
+                )}
+              </svg>
+            </button>
+          ) : null}
           {status === "authenticated" ? (
             <>
               <div className="inline-flex items-center gap-3 rounded-xl border border-[#1E1E35] bg-[#0E0E1A] px-3 py-2">

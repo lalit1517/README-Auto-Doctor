@@ -16,17 +16,26 @@ export default function Navbar() {
   }, []);
 
   const navLinks = [
-    { label: "Features", href: "#features" },
-    { label: "How It Works", href: "#how-it-works" },
-    { label: "FAQ", href: "#faq" },
+    { label: "Features", id: "features" },
+    { label: "How It Works", id: "how-it-works" },
+    { label: "FAQ", id: "faq" },
   ];
+
+  const scrollTo = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}`
+    );
+  };
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 border-b transition-all duration-300 ${
         scrolled
-          ? "bg-[#07070E]/90 backdrop-blur-xl border-b border-[#1E1E35] shadow-[0_1px_0_rgba(255,255,255,0.03)]"
-          : "bg-transparent"
+          ? "bg-[#07070E]/90 backdrop-blur-xl border-[#1E1E35] shadow-[0_1px_0_rgba(255,255,255,0.03)]"
+          : "bg-transparent border-transparent"
       }`}
     >
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
@@ -51,13 +60,13 @@ export default function Navbar() {
         {/* Desktop Nav Links */}
         <div className="hidden md:flex items-center gap-1">
           {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
+            <button
+              key={link.id}
+              onClick={() => scrollTo(link.id)}
               className="px-4 py-2 text-sm text-[#9B9BB8] hover:text-[#F2F2FF] transition-colors duration-200 rounded-lg hover:bg-white/[0.04]"
             >
               {link.label}
-            </a>
+            </button>
           ))}
         </div>
 
@@ -121,14 +130,13 @@ export default function Navbar() {
       {menuOpen && (
         <div id="mobile-menu" className="md:hidden border-t border-[#1E1E35] bg-[#07070E]/95 backdrop-blur-xl px-6 py-4 flex flex-col gap-1">
           {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              onClick={() => setMenuOpen(false)}
-              className="px-4 py-3 text-sm text-[#9B9BB8] hover:text-[#F2F2FF] rounded-lg hover:bg-white/[0.04] transition-colors"
+            <button
+              key={link.id}
+              onClick={() => { scrollTo(link.id); setMenuOpen(false); }}
+              className="px-4 py-3 text-sm text-left text-[#9B9BB8] hover:text-[#F2F2FF] rounded-lg hover:bg-white/[0.04] transition-colors"
             >
               {link.label}
-            </a>
+            </button>
           ))}
           <div className="mt-2 pt-2 border-t border-[#1E1E35]">
             <Link
