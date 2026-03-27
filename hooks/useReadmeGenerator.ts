@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import type { FormEvent } from "react";
 import type {
   AnalyzeResponse,
@@ -7,6 +8,7 @@ import type {
   SessionStatus,
 } from "@/types/readme-doctor";
 import {
+  emptyOriginalMarkdown,
   emptyImprovedMarkdown,
   useReadmeState,
 } from "./useReadmeState";
@@ -38,6 +40,25 @@ export function useReadmeGenerator(
   const resolvedAnalyzeTarget = resolvedSelectedRepoUrl || state.repoUrl.trim();
   const canAnalyze =
     Boolean(resolvedAnalyzeTarget) && !state.isLoading && !state.isCreatingPr;
+
+  // When the selected repo changes, ensure analysis state is cleared if it
+  // doesn't match the newly selected repo. This prevents stale analysis from
+  // persisting when the user selects a different repository.
+  useEffect(() => {
+    // If there's no selected repo URL, do nothing here — users may be typing
+    // a URL in the input instead.
+    if (!resolvedSelectedRepoUrl) return;
+
+    // If the currently analyzed repo differs from the newly selected repo,
+    // clear analysis-related state so the UI reflects the new selection.
+    if (resolvedSelectedRepoUrl !== state.analyzedRepoUrl) {
+      state.setAnalyzedRepoUrl("");
+      state.setOriginalReadme(emptyOriginalMarkdown);
+      state.setImprovedReadme(emptyImprovedMarkdown);
+      state.resetAnalysisMeta();
+      state.clearMessages();
+    }
+  }, [resolvedSelectedRepoUrl, state.analyzedRepoUrl]);
 
   async function analyzeUrl(url: string) {
     const normalizedUrl = url.trim();
