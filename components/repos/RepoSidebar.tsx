@@ -6,7 +6,7 @@ type RepoSidebarProps = {
   activeRepo: GitHubRepo | null;
   id?: string;
   repos: GitHubRepo[];
-  isGenerating: boolean;
+  isBusy: boolean;
   isLoading: boolean;
   error: string;
   onRefresh: () => void;
@@ -19,7 +19,7 @@ export const RepoSidebar = memo(function RepoSidebar({
   activeRepo,
   id,
   repos,
-  isGenerating,
+  isBusy,
   isLoading,
   error,
   onRefresh,
@@ -55,7 +55,7 @@ export const RepoSidebar = memo(function RepoSidebar({
         <div className="flex items-center gap-1">
           <button
             className="rounded-lg p-1.5 text-[#5C5C7B] transition hover:bg-[#15152A] hover:text-[#9B9BB8] disabled:opacity-50"
-            disabled={isLoading}
+            disabled={isBusy}
             onClick={onRefresh}
             title="Refresh repos"
             type="button"
@@ -131,7 +131,7 @@ export const RepoSidebar = memo(function RepoSidebar({
               return (
                 <RepoItem
                   isActive={isActive}
-                  isDisabled={!isActive && isGenerating}
+                  isDisabled={!isActive && isBusy}
                   isSelected={selectedRepos.has(repo.fullName)}
                   key={repo.fullName}
                   onSelect={onSelectRepo}

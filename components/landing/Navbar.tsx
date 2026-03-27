@@ -23,7 +23,11 @@ export default function Navbar() {
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-    history.replaceState(null, "", window.location.pathname);
+    history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}`
+    );
   };
 
   return (

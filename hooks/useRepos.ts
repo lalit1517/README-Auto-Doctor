@@ -2,15 +2,36 @@
 
 import { useCallback, useState } from "react";
 import type {
+  FetchReposResult,
   GitHubRepo,
   RepoSelectionMode,
   ReposResponse,
   SessionStatus,
 } from "@/types/readme-doctor";
 
+function buildSidebarRepos(
+  repos: GitHubRepo[],
+  mode: RepoSelectionMode | null,
+  selectedRepoIds: Set<string>,
+) {
+  switch (mode) {
+    case "public":
+      return repos.filter((repo) => !repo.isPrivate);
+    case "private":
+      return repos.filter((repo) => repo.isPrivate);
+    case "specific":
+      return repos.filter((repo) => selectedRepoIds.has(repo.fullName));
+    case "all":
+    default:
+      return repos;
+  }
+}
+
 export function useRepos(status: SessionStatus) {
   const [allFetchedRepos, setAllFetchedRepos] = useState<GitHubRepo[]>([]);
   const [sidebarRepos, setSidebarRepos] = useState<GitHubRepo[]>([]);
+  const [sidebarMode, setSidebarMode] = useState<RepoSelectionMode | null>(null);
+  const [selectedRepoIds, setSelectedRepoIds] = useState<Set<string>>(new Set());
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [reposError, setReposError] = useState("");
   const [selectedRepos, setSelectedRepos] = useState<Set<string>>(new Set());
@@ -18,7 +39,9 @@ export function useRepos(status: SessionStatus) {
   const [selectionComplete, setSelectionComplete] = useState(false);
 
   const fetchReposWithVisibility = useCallback(
-    async (visibility: "all" | "public" | "private" = "all") => {
+    async (
+      visibility: "all" | "public" | "private" = "all",
+    ): Promise<FetchReposResult> => {
       setIsLoadingRepos(true);
       setReposError("");
 
@@ -33,12 +56,12 @@ export function useRepos(status: SessionStatus) {
 
         const repos = data.repos ?? [];
         setAllFetchedRepos(repos);
-        return repos;
+        return { repos, success: true };
       } catch (err) {
         setReposError(
           err instanceof Error ? err.message : "Failed to fetch repositories.",
         );
-        return [];
+        return { success: false };
       } finally {
         setIsLoadingRepos(false);
       }
@@ -50,17 +73,28 @@ export function useRepos(status: SessionStatus) {
     async (mode: RepoSelectionMode, specificIds?: Set<string>) => {
       if (mode === "specific") {
         // allFetchedRepos should already be loaded by the modal
-        const filtered = allFetchedRepos.filter((r) =>
-          specificIds?.has(r.fullName),
+        const nextSelectedRepoIds = new Set(specificIds ?? []);
+        const filtered = buildSidebarRepos(
+          allFetchedRepos,
+          mode,
+          nextSelectedRepoIds,
         );
+        setSidebarMode(mode);
+        setSelectedRepoIds(nextSelectedRepoIds);
         setSidebarRepos(filtered);
         setSelectionComplete(true);
       } else {
         // Fetch with the right visibility filter
         const visibility =
           mode === "public" || mode === "private" ? mode : "all";
-        const repos = await fetchReposWithVisibility(visibility);
-        setSidebarRepos(repos);
+        const result = await fetchReposWithVisibility(visibility);
+        if (!result.success) {
+          return;
+        }
+
+        setSidebarMode(mode);
+        setSelectedRepoIds(new Set());
+        setSidebarRepos(result.repos);
         setSelectionComplete(true);
       }
     },
@@ -83,21 +117,7 @@ export function useRepos(status: SessionStatus) {
 
       const freshRepos = data.repos ?? [];
       setAllFetchedRepos(freshRepos);
-
-      // Keep only repos whose fullNames are in the current sidebar set
-      const currentNames = new Set(sidebarRepos.map((r) => r.fullName));
-      const updatedSidebar = freshRepos.filter((r) =>
-        currentNames.has(r.fullName),
-      );
-
-      // If sidebar had all repos (no specific filter), show all fresh repos
-      if (updatedSidebar.length === 0 && sidebarRepos.length > 0) {
-        setSidebarRepos(freshRepos);
-      } else {
-        setSidebarRepos(
-          updatedSidebar.length > 0 ? updatedSidebar : freshRepos,
-        );
-      }
+      setSidebarRepos(buildSidebarRepos(freshRepos, sidebarMode, selectedRepoIds));
     } catch (err) {
       setReposError(
         err instanceof Error ? err.message : "Failed to fetch repositories.",
@@ -105,7 +125,7 @@ export function useRepos(status: SessionStatus) {
     } finally {
       setIsLoadingRepos(false);
     }
-  }, [selectionComplete, sidebarRepos]);
+  }, [selectionComplete, selectedRepoIds, sidebarMode]);
 
   function selectRepo(repo: GitHubRepo) {
     setSelectedRepo(repo);

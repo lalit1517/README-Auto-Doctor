@@ -44,3 +44,12 @@ export type ReposResponse = {
   error?: string;
   repos?: GitHubRepo[];
 };
+
+export type FetchReposResult =
+  | {
+      repos: GitHubRepo[];
+      success: true;
+    }
+  | {
+      success: false;
+    };

@@ -115,7 +115,7 @@ export function ReadmeDoctorApp() {
 
   const handleModalFetch = useCallback(
     async (visibility?: "all" | "public" | "private") => {
-      await fetchReposWithVisibility(visibility);
+      return fetchReposWithVisibility(visibility);
     },
     [fetchReposWithVisibility],
   );
@@ -179,7 +179,7 @@ export function ReadmeDoctorApp() {
                   activeRepo={activeRepo}
                   error={reposError}
                   id="repo-sidebar"
-                  isGenerating={isLoading}
+                  isBusy={isLoadingRepos || isLoading || isCreatingPr}
                   isLoading={isLoadingRepos}
                   onClose={() => setIsSidebarOpen(false)}
                   onRefresh={() => void refreshRepos()}

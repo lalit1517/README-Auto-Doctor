@@ -35,8 +35,13 @@ export const InputForm = memo(function InputForm({
             </p>
             {onClearSelectedRepo ? (
               <button
-                className="text-xs font-medium text-[#7C6FE0] transition hover:text-[#9B9BFF]"
-                onClick={onClearSelectedRepo}
+                className="text-xs font-medium text-[#7C6FE0] transition hover:text-[#9B9BFF] disabled:cursor-not-allowed disabled:text-[#5C5C7B] disabled:opacity-60"
+                disabled={isBusy}
+                onClick={() => {
+                  if (!isBusy) {
+                    onClearSelectedRepo();
+                  }
+                }}
                 type="button"
               >
                 Use typed URL instead

@@ -1,14 +1,20 @@
 "use client";
 
-import { memo, useState } from "react";
-import type { GitHubRepo, RepoSelectionMode } from "@/types/readme-doctor";
+import { memo, useEffect, useId, useRef, useState, type RefObject } from "react";
+import type {
+  FetchReposResult,
+  GitHubRepo,
+  RepoSelectionMode,
+} from "@/types/readme-doctor";
 
 type RepoSelectionModalProps = {
   allRepos: GitHubRepo[];
   isLoadingRepos: boolean;
   reposError: string;
   onConfirm: (mode: RepoSelectionMode, selectedIds?: Set<string>) => void;
-  onFetchRepos: (visibility?: "all" | "public" | "private") => Promise<void>;
+  onFetchRepos: (
+    visibility?: "all" | "public" | "private",
+  ) => Promise<FetchReposResult>;
 };
 
 const modeOptions: { value: RepoSelectionMode; label: string; description: string }[] = [
@@ -18,6 +24,101 @@ const modeOptions: { value: RepoSelectionMode; label: string; description: strin
   { value: "specific", label: "Select Specific", description: "Pick individual repositories to load" },
 ];
 
+const focusableSelector = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(", ");
+
+type InertCapableElement = HTMLElement & {
+  inert?: boolean;
+};
+
+function getFocusableElements(container: HTMLElement) {
+  return Array.from(container.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+    (element) =>
+      !element.hasAttribute("disabled") &&
+      element.getAttribute("aria-hidden") !== "true" &&
+      element.tabIndex !== -1,
+  );
+}
+
+function useModalA11y(panelRef: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return undefined;
+
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const overlay = panel.parentElement;
+    const siblings = overlay?.parentElement
+      ? Array.from(overlay.parentElement.children).filter((element) => element !== overlay)
+      : [];
+    const siblingState = siblings.map((element) => {
+      const htmlElement = element as InertCapableElement;
+      const previousAriaHidden = htmlElement.getAttribute("aria-hidden");
+      const previousInert = htmlElement.inert;
+      htmlElement.inert = true;
+      htmlElement.setAttribute("aria-hidden", "true");
+      return { element: htmlElement, previousAriaHidden, previousInert };
+    });
+
+    const focusableElements = getFocusableElements(panel);
+    (focusableElements[0] ?? panel).focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+
+      const elements = getFocusableElements(panel);
+      if (elements.length === 0) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      const activeElement = document.activeElement;
+
+      if (event.shiftKey) {
+        if (activeElement === first || !panel.contains(activeElement)) {
+          event.preventDefault();
+          last.focus();
+        }
+        return;
+      }
+
+      if (activeElement === last || !panel.contains(activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+
+      siblingState.forEach(({ element, previousAriaHidden, previousInert }) => {
+        element.inert = previousInert;
+        if (previousAriaHidden === null) {
+          element.removeAttribute("aria-hidden");
+        } else {
+          element.setAttribute("aria-hidden", previousAriaHidden);
+        }
+      });
+
+      if (previouslyFocused?.isConnected) {
+        previouslyFocused.focus();
+      }
+    };
+  }, [panelRef]);
+}
+
 export const RepoSelectionModal = memo(function RepoSelectionModal({
   allRepos,
   isLoadingRepos,
@@ -25,10 +126,14 @@ export const RepoSelectionModal = memo(function RepoSelectionModal({
   onConfirm,
   onFetchRepos,
 }: RepoSelectionModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
   const [mode, setMode] = useState<RepoSelectionMode | null>(null);
   const [specificSelected, setSpecificSelected] = useState<Set<string>>(new Set());
   const [showSpecificPicker, setShowSpecificPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  useModalA11y(panelRef);
 
   function handleModeSelect(selected: RepoSelectionMode) {
     setMode(selected);
@@ -74,7 +179,14 @@ export const RepoSelectionModal = memo(function RepoSelectionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="mx-4 w-full max-w-lg rounded-2xl border border-[#1E1E35] bg-[#0E0E1A] shadow-[0_0_80px_rgba(0,0,0,0.6)]">
+      <div
+        ref={panelRef}
+        aria-labelledby={titleId}
+        aria-modal="true"
+        role="dialog"
+        tabIndex={-1}
+        className="mx-4 w-full max-w-lg rounded-2xl border border-[#1E1E35] bg-[#0E0E1A] shadow-[0_0_80px_rgba(0,0,0,0.6)]"
+      >
         {/* Header */}
         <div className="border-b border-[#1E1E35] px-6 py-5">
           <div className="flex items-center gap-3">
@@ -94,7 +206,7 @@ export const RepoSelectionModal = memo(function RepoSelectionModal({
               </svg>
             </div>
             <div>
-              <h2 className="text-base font-semibold text-[#F2F2FF]">
+              <h2 id={titleId} className="text-base font-semibold text-[#F2F2FF]">
                 Choose Repositories
               </h2>
               <p className="mt-0.5 text-xs text-[#5C5C7B]">
@@ -266,8 +378,9 @@ export const RepoSelectionModal = memo(function RepoSelectionModal({
 
               {specificSelected.size > 0 && (
                 <p className="mt-2 text-[11px] text-[#7C6FE0]">
-                  {specificSelected.size} repository
-                  {specificSelected.size !== 1 ? "ies" : ""} selected
+                  {specificSelected.size}{" "}
+                  {specificSelected.size === 1 ? "repository" : "repositories"}{" "}
+                  selected
                 </p>
               )}
             </div>
