@@ -33,6 +33,18 @@ type ReadmeEvaluation = {
   issues: string[];
   score: number;
   suggestions: string[];
+  breakdown?: {
+    structure?: number;
+    clarity?: number;
+    completeness?: number;
+    formatting?: number;
+  };
+  weights?: {
+    structure?: number;
+    clarity?: number;
+    completeness?: number;
+    formatting?: number;
+  };
 };
 
 type FolderStructureExplanation = {
@@ -701,16 +713,29 @@ function buildReadmeEvaluationPrompt(readme: string) {
 
 Return:
 {
+  "breakdown": {
+    "structure": number,
+    "clarity": number,
+    "completeness": number,
+    "formatting": number
+  },
+  "weights": {
+    "structure": number,
+    "clarity": number,
+    "completeness": number,
+    "formatting": number
+  },
   "score": number,
   "issues": string[],
   "suggestions": string[]
 }
 
-Scoring criteria:
-- structure
-- clarity
-- completeness
-- formatting
+Instructions:
+- For each field in "breakdown" return an integer 0-100 (0 = worst, 100 = best).
+- For "weights" return numbers representing importance. You may return decimals summing to 1 or percentages summing to 100; they will be normalized.
+- Compute "score" as the weighted average of the breakdown using the provided weights. Round to the nearest integer and clamp to 0-100.
+- Use only the README content below to evaluate; do not invent facts or consult external sources.
+- Return valid JSON only with the fields above.
 
 README:
 \`\`\`md
@@ -884,9 +909,81 @@ export async function evaluateReadme(readme: string) {
     issues?: unknown;
     score?: unknown;
     suggestions?: unknown;
+    breakdown?: unknown;
+    weights?: unknown;
   }>(content, "AI providers returned malformed README evaluation JSON.");
 
-  const score = Number(evaluation.score);
+  const criteria = ["structure", "clarity", "completeness", "formatting"];
+
+  // Attempt to compute a weighted score from a breakdown if the AI provided one.
+  let computedScore: number | null = null;
+  let finalBreakdown: Record<string, number> | undefined;
+  let finalWeights: Record<string, number> | undefined;
+
+  const breakdownRaw = evaluation.breakdown as Record<string, unknown> | undefined;
+  const weightsRaw = evaluation.weights as Record<string, unknown> | undefined;
+
+  if (breakdownRaw && typeof breakdownRaw === "object") {
+    finalBreakdown = {};
+
+    for (const key of criteria) {
+      const v = Number((breakdownRaw as any)[key]);
+      finalBreakdown[key] = Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : NaN;
+    }
+
+    const hasAny = criteria.some((k) => Number.isFinite(finalBreakdown![k]));
+
+    if (hasAny) {
+      // Parse and normalize weights.
+      finalWeights = {};
+      let sum = 0;
+
+      if (weightsRaw && typeof weightsRaw === "object") {
+        for (const key of criteria) {
+          const w = Number((weightsRaw as any)[key]);
+          if (Number.isFinite(w) && w > 0) {
+            finalWeights[key] = w;
+            sum += w;
+          } else {
+            finalWeights[key] = 0;
+          }
+        }
+      }
+
+      if (sum <= 0) {
+        finalWeights = {
+          structure: 0.25,
+          clarity: 0.25,
+          completeness: 0.35,
+          formatting: 0.15,
+        };
+        sum = 1;
+      } else {
+        // Normalize any provided weights so they sum to 1.
+        for (const key of criteria) {
+          finalWeights[key] = (finalWeights[key] || 0) / sum;
+        }
+      }
+
+      // Compute weighted average. Missing breakdown values are treated as 0 for weighting purposes.
+      let total = 0;
+      for (const key of criteria) {
+        const val = finalBreakdown[key];
+        const w = finalWeights[key] || 0;
+        if (Number.isFinite(val)) {
+          total += val * w;
+        }
+      }
+
+      computedScore = Math.round(Math.max(0, Math.min(100, total)));
+    }
+  }
+
+  let score = Number(evaluation.score);
+
+  if (computedScore !== null && Number.isFinite(computedScore)) {
+    score = computedScore;
+  }
 
   if (!Number.isFinite(score)) {
     throw new AIRequestError("AI providers returned an invalid README score.", 502);
@@ -896,6 +993,8 @@ export async function evaluateReadme(readme: string) {
     score: Math.max(0, Math.min(100, Math.round(score))),
     issues: coerceStringArray(evaluation.issues),
     suggestions: coerceStringArray(evaluation.suggestions),
+    breakdown: finalBreakdown,
+    weights: finalWeights,
   } satisfies ReadmeEvaluation;
 }
 
