@@ -28,3 +28,19 @@ export type ViewMode = "preview" | "diff";
 export type SessionStatus = "authenticated" | "loading" | "unauthenticated";
 
 export type HeaderSession = Session | null;
+
+export type GitHubRepo = {
+  fullName: string;
+  htmlUrl: string;
+  isPrivate: boolean;
+  name: string;
+};
+
+export type RepoFilter = "all" | "public" | "private";
+
+export type RepoSelectionMode = "all" | "public" | "private" | "specific";
+
+export type ReposResponse = {
+  error?: string;
+  repos?: GitHubRepo[];
+};

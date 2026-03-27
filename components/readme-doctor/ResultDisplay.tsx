@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import ReactDiffViewer from "react-diff-viewer-continued";
 import rehypeHighlight from "rehype-highlight";
 import ReactMarkdown from "react-markdown";
@@ -9,8 +9,6 @@ import { Loader } from "./Loader";
 
 const markdownRemarkPlugins = [remarkGfm];
 const markdownRehypePlugins = [rehypeHighlight];
-const markdownPreviewClassName =
-  "prose prose-invert prose-slate max-w-none overflow-x-auto p-6 prose-headings:text-[#F2F2FF] prose-headings:font-display prose-p:text-[#9B9BB8] prose-strong:text-[#F2F2FF] prose-a:text-[#7C6FE0] prose-code:text-[#2ECAD9] prose-pre:overflow-x-auto prose-pre:border prose-pre:border-[#1E1E35] prose-pre:bg-[#07070E] prose-blockquote:border-[#2A2A48] prose-blockquote:text-[#9B9BB8] prose-ul:list-disc prose-ol:list-decimal prose-li:marker:text-[#5C5C7B] prose-table:block prose-table:w-full prose-table:overflow-x-auto prose-table:border-collapse prose-th:border prose-th:border-[#1E1E35] prose-th:bg-[#0E0E1A] prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-[#1E1E35] prose-td:px-3 prose-td:py-2";
 
 type ResultDisplayProps = {
   canCopyReadme: boolean;
@@ -23,6 +21,7 @@ type ResultDisplayProps = {
   issues: string[];
   onCopyReadme: () => void;
   onCreatePullRequest: () => void;
+  onImprovedReadmeChange: (value: string) => void;
   onViewModeChange: (mode: ViewMode) => void;
   originalReadme: string;
   prError: string;
@@ -38,14 +37,14 @@ const ReadmeMarkdownPreview = memo(function ReadmeMarkdownPreview({
   content: string;
 }) {
   return (
-    <article className={markdownPreviewClassName}>
+    <div className="markdown-body max-w-none overflow-x-auto px-6 py-6">
       <ReactMarkdown
         remarkPlugins={markdownRemarkPlugins}
         rehypePlugins={markdownRehypePlugins}
       >
         {content}
       </ReactMarkdown>
-    </article>
+    </div>
   );
 });
 
@@ -60,6 +59,7 @@ export const ResultDisplay = memo(function ResultDisplay({
   issues,
   onCopyReadme,
   onCreatePullRequest,
+  onImprovedReadmeChange,
   onViewModeChange,
   originalReadme,
   prError,
@@ -68,6 +68,7 @@ export const ResultDisplay = memo(function ResultDisplay({
   suggestions,
   viewMode,
 }: ResultDisplayProps) {
+  const [isEditing, setIsEditing] = useState(false);
   return (
     <>
       {/* Toolbar */}
@@ -236,16 +237,54 @@ export const ResultDisplay = memo(function ResultDisplay({
                 <p className="text-xs font-medium uppercase tracking-widest text-[#7C6FE0]">
                   Improved README
                 </p>
-                <button
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#7C6FE0]/25 bg-[#7C6FE0]/10 px-3 py-1 text-xs font-medium text-[#7C6FE0] transition hover:bg-[#7C6FE0]/15 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!canCopyReadme}
-                  onClick={onCopyReadme}
-                  type="button"
-                >
-                  {isCopying ? "Copying..." : "Copy"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-medium transition ${
+                      isEditing
+                        ? "border-[#2ECAD9]/25 bg-[#2ECAD9]/10 text-[#2ECAD9] hover:bg-[#2ECAD9]/15"
+                        : "border-[#7C6FE0]/25 bg-[#7C6FE0]/10 text-[#7C6FE0] hover:bg-[#7C6FE0]/15"
+                    }`}
+                    onClick={() => setIsEditing((prev) => !prev)}
+                    type="button"
+                  >
+                    {isEditing ? (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        Preview
+                      </>
+                    ) : (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                        Edit
+                      </>
+                    )}
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#7C6FE0]/25 bg-[#7C6FE0]/10 px-3 py-1 text-xs font-medium text-[#7C6FE0] transition hover:bg-[#7C6FE0]/15 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!canCopyReadme}
+                    onClick={onCopyReadme}
+                    type="button"
+                  >
+                    {isCopying ? "Copying..." : "Copy"}
+                  </button>
+                </div>
               </div>
-              <ReadmeMarkdownPreview content={improvedReadme} />
+              {isEditing ? (
+                <textarea
+                  className="w-full h-full resize-y bg-[#07070E] p-6 font-mono text-sm text-[#F2F2FF] leading-relaxed outline-none placeholder:text-[#5C5C7B] focus:ring-1 focus:ring-[#7C6FE0]/30"
+                  value={improvedReadme}
+                  onChange={(e) => onImprovedReadmeChange(e.target.value)}
+                  spellCheck={false}
+                />
+              ) : (
+                <ReadmeMarkdownPreview content={improvedReadme} />
+              )}
             </section>
           </div>
         ) : (

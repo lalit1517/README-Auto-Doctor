@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "github-markdown-css": "^5.9.0",
     "highlight.js": "^11.11.1",
     "next": "14.2.30",
     "next-auth": "^4.24.13",
