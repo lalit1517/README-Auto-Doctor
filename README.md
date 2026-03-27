@@ -1,4 +1,4 @@
-# readme-auto-doctor
+# Readme Auto Doctor
 ## Description
 A Next.js application designed for markdown processing, syntax highlighting, and diff visualization. It integrates TypeScript, Tailwind CSS, and NextAuth.js, enabling the rendering of GitHub Flavored Markdown and the visualization of differences between documents.
 
@@ -10,26 +10,6 @@ A Next.js application designed for markdown processing, syntax highlighting, and
 *   Markdown rendering with GitHub Flavored Markdown support
 *   Syntax highlighting for code blocks
 *   Diff visualization between documents
-
-## Installation
-```bash
-npm install
-```
-
-## Usage
-```bash
-# Development
-npm run dev
-
-# Production build
-npm run build
-
-# Start production server
-npm run start
-
-# Lint code
-npm run lint
-```
 
 ## Tech Stack
 *   **Framework**: Next.js 14
@@ -61,3 +41,23 @@ npm run lint
 *   **Authentication**: Integrates NextAuth.js.
 *   **Architecture**: Built with Next.js 14 App Router, utilizing a modern `/app` directory structure and TypeScript.
 *   **Key Technologies**: Leverages React 18, Tailwind CSS, `react-markdown`, `rehype-highlight`, and `react-diff-viewer-continued`.
+
+## Installation
+```bash
+npm install
+```
+
+## Usage
+```bash
+# Development
+npm run dev
+
+# Production build
+npm run build
+
+# Start production server
+npm run start
+
+# Lint code
+npm run lint
+```
