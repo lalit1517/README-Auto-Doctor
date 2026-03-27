@@ -13,6 +13,7 @@ type RepoSidebarProps = {
   onSelectRepo: (repo: GitHubRepo) => void;
   onClose?: () => void;
   selectedRepos: Set<string>;
+  titleId?: string;
 };
 
 export const RepoSidebar = memo(function RepoSidebar({
@@ -26,6 +27,7 @@ export const RepoSidebar = memo(function RepoSidebar({
   onSelectRepo,
   onClose,
   selectedRepos,
+  titleId,
 }: RepoSidebarProps) {
   return (
     <aside
@@ -48,12 +50,13 @@ export const RepoSidebar = memo(function RepoSidebar({
             <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
             <path d="M9 18c-4.51 2-5-2-7-2" />
           </svg>
-          <h2 className="text-sm font-semibold text-[#F2F2FF]">
+          <h2 className="text-sm font-semibold text-[#F2F2FF]" id={titleId}>
             Repositories
           </h2>
         </div>
         <div className="flex items-center gap-1">
           <button
+            aria-label="Refresh repositories"
             className="rounded-lg p-1.5 text-[#5C5C7B] transition hover:bg-[#15152A] hover:text-[#9B9BB8] disabled:opacity-50"
             disabled={isBusy}
             onClick={onRefresh}

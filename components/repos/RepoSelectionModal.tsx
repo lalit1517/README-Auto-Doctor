@@ -267,6 +267,11 @@ export const RepoSelectionModal = memo(function RepoSelectionModal({
                   </div>
                 </button>
               ))}
+              {reposError && (
+                <div className="px-4 py-2">
+                  <p className="text-xs text-red-400">{reposError}</p>
+                </div>
+              )}
             </div>
           ) : (
             /* Specific repo picker */
@@ -313,6 +318,7 @@ export const RepoSelectionModal = memo(function RepoSelectionModal({
                 <input
                   type="text"
                   placeholder="Search repositories..."
+                  aria-label="Search repositories"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-lg border border-[#1E1E35] bg-[#07070E] py-2 pl-9 pr-3 text-xs text-[#F2F2FF] placeholder-[#5C5C7B] outline-none transition-colors focus:border-[#7C6FE0]"
@@ -391,7 +397,7 @@ export const RepoSelectionModal = memo(function RepoSelectionModal({
         <div className="flex items-center justify-end gap-3 border-t border-[#1E1E35] px-6 py-4">
           <button
             type="button"
-            disabled={!canConfirm || isLoadingRepos}
+            disabled={!canConfirm || isLoadingRepos || !!reposError}
             onClick={handleConfirm}
             className="rounded-xl bg-[#7C6FE0] px-5 py-2.5 text-sm font-medium text-white shadow-[0_0_16px_rgba(124,111,224,0.25)] transition-all hover:bg-[#6B5ED0] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
           >
