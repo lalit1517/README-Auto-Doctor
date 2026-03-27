@@ -54,13 +54,23 @@ export async function POST(request: Request) {
   try {
     const accessToken = await getGitHubToken();
     const baseContext = await buildBaseRepositoryContext(owner, repo, accessToken);
-    const [folderResult, summaryResult] = await Promise.all([
+    const evaluationPromise = baseContext.readme
+      ? evaluateReadme(baseContext.readme)
+      : Promise.resolve({
+          score: 0,
+          issues: ["No existing README found."],
+          suggestions: [
+            "Add an initial README with project overview, setup steps, and usage details.",
+          ],
+        });
+    const [folderResult, summaryResult, evaluation] = await Promise.all([
       baseContext.files.length > 0
         ? explainFolderStructure(baseContext.files)
         : Promise.resolve({
             structureExplanation: "- No root-level folders or files were detected.",
           }),
       summarizeCodebase(baseContext),
+      evaluationPromise,
     ]);
     const context: BaseRepositoryContext & {
       architectureSummary: string;
@@ -70,18 +80,7 @@ export async function POST(request: Request) {
       architectureSummary: summaryResult.summary,
       structureExplanation: folderResult.structureExplanation,
     };
-    const [improved, evaluation] = await Promise.all([
-      generateReadmeFromRepositoryContext(context),
-      context.readme
-        ? evaluateReadme(context.readme)
-        : Promise.resolve({
-            score: 0,
-            issues: ["No existing README found."],
-            suggestions: [
-              "Add an initial README with project overview, setup steps, and usage details.",
-            ],
-          }),
-    ]);
+    const improved = await generateReadmeFromRepositoryContext(context, evaluation);
 
     return NextResponse.json({
       improved,
