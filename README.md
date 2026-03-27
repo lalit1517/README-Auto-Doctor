@@ -1,4 +1,4 @@
-# readme-auto-doctor
+# Readme Auto Doctor
 ## Description
 A Next.js application designed for markdown processing, syntax highlighting, and diff visualization. It integrates TypeScript, Tailwind CSS, and NextAuth.js, enabling the rendering of GitHub Flavored Markdown and the visualization of differences between documents.
 
@@ -11,9 +11,37 @@ A Next.js application designed for markdown processing, syntax highlighting, and
 *   Syntax highlighting for code blocks
 *   Diff visualization between documents
 
+## Tech Stack
+*   Next.js
+*   React
+*   Node.js
+*   TypeScript
+*   JavaScript
+
+## Folder Structure
+*   `.gitignore`: specifies files to be ignored by Git version control.
+*   `app/`: main application folder containing Next.js pages.
+*   `components/`: folder for reusable React components.
+*   `lib/`: folder for utility libraries and functions.
+*   `next-env.d.ts`: TypeScript definitions for Next.js environment.
+*   `next.config.mjs`: configuration file for Next.js.
+*   `package-lock.json`: locks dependencies to specific versions.
+*   `package.json`: lists project dependencies and scripts.
+*   `postcss.config.js`: configuration file for PostCSS.
+*   `public/`: folder for static assets and files.
+*   `tailwind.config.ts`: configuration file for Tailwind CSS.
+*   `tsconfig.json`: configuration file for TypeScript compiler.
+*   `tsconfig.tsbuildinfo`: cache file for TypeScript build information.
+*   `types/`: folder for custom TypeScript type definitions.
+
+## Architecture Overview
+*   The purpose of this repository is to provide a Next.js application for markdown processing, syntax highlighting, and diff visualization.
+*   The main functionality includes rendering GitHub Flavored Markdown, providing syntax highlighting, and visualizing document differences.
+*   The architecture is built with Next.js 14 App Router, utilizing a modern `/app` directory structure and TypeScript.
+
 ## Installation
 ```bash
-npm install
+# No verified install command found
 ```
 
 ## Usage
@@ -30,34 +58,3 @@ npm run start
 # Lint code
 npm run lint
 ```
-
-## Tech Stack
-*   **Framework**: Next.js 14
-*   **Frontend**: React 18
-*   **Runtime**: Node.js
-*   **Language**: TypeScript 5.7
-*   **Styling**: Tailwind CSS 3, PostCSS
-*   **Authentication**: NextAuth.js 4
-*   **Markdown Processing**: `react-markdown`, `remark-gfm`, `rehype-highlight`
-*   **Diff Visualization**: `react-diff-viewer-continued`
-
-## Folder Structure
-*   `.gitignore`: Specifies files and directories to be ignored by Git.
-*   `app/`: Contains the main application code following the Next.js App Router structure.
-*   `components/`: Stores reusable UI components.
-*   `lib/`: Holds utility functions and helper modules.
-*   `next-env.d.ts`: Declares types specific to the Next.js environment for TypeScript.
-*   `next.config.mjs`: Next.js configuration file.
-*   `package-lock.json`: Records the exact dependency tree.
-*   `package.json`: Defines project metadata, scripts, and dependencies.
-*   `postcss.config.js`: PostCSS configuration file.
-*   `tailwind.config.ts`: Tailwind CSS configuration file.
-*   `tsconfig.json`: TypeScript compiler configuration file.
-*   `types/`: Contains custom TypeScript type definitions.
-
-## Architecture Overview
-*   **Purpose**: A Next.js application for markdown processing, syntax highlighting, and diff visualization.
-*   **Core Functionality**: Renders GitHub Flavored Markdown, provides syntax highlighting, and visualizes document differences.
-*   **Authentication**: Integrates NextAuth.js.
-*   **Architecture**: Built with Next.js 14 App Router, utilizing a modern `/app` directory structure and TypeScript.
-*   **Key Technologies**: Leverages React 18, Tailwind CSS, `react-markdown`, `rehype-highlight`, and `react-diff-viewer-continued`.
